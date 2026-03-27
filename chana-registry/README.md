@@ -74,28 +74,19 @@ chana-registry/
 
 ## 快速开始 | Quick Start
 
-### 方式一：Netty服务端 (高性能)
+### 1. 构建后端项目
 
 ```bash
-# 1. 构建项目
 cd chana-registry
-mvn clean package -DskipTests
-
-# 2. 启动Netty服务端
-java -jar chanaserver/target/chanaserver-1.0.0.jar
-# Netty端口: 9999, HTTP端口: 9998
+mvn clean install -DskipTests
 ```
 
-### 方式二：Spring Boot服务端 (标准HTTP API)
+### 2. 启动后端服务
 
 ```bash
-# 1. 构建项目
-cd chana-registry
-mvn clean package -DskipTests
-
-# 2. 启动Spring Boot服务端
-java -jar chana-spring/target/chana-spring-1.0.0.jar
-# HTTP端口: 9998, 提供标准REST API
+cd chanaserver
+mvn compile exec:java -Dexec.mainClass="com.chanacode.server.bootstrap.ChaNaServer"
+# Netty端口: 9999, HTTP API端口: 9998
 ```
 
 ### 3. 启动前端
@@ -112,30 +103,28 @@ npm run dev
 
 ## REST API 接口 | REST API Endpoints
 
-### Spring Boot API (推荐)
-
-基础路径: `/api/v1`
+基础路径: `/api`
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| GET | `/api/v1/metrics` | 获取核心性能指标 |
-| GET | `/api/v1/services` | 获取服务列表 |
-| GET | `/api/v1/services/{name}` | 获取服务详情 |
-| GET | `/api/v1/namespaces` | 获取命名空间列表 |
-| GET | `/api/v1/health` | 获取健康状态 |
-| GET | `/api/v1/stats` | 获取统计数据 |
-| POST | `/api/v1/services/register` | 注册服务实例 |
-| POST | `/api/v1/services/deregister` | 注销服务实例 |
-| POST | `/api/v1/heartbeat` | 发送心跳 |
+| GET | `/api/metrics` | 获取核心性能指标 |
+| GET | `/api/services` | 获取服务列表 |
+| GET | `/api/services/{name}` | 获取服务详情 |
+| GET | `/api/namespaces` | 获取命名空间列表 |
+| GET | `/api/health` | 获取健康状态 |
+| GET | `/api/stats` | 获取统计数据 |
+| POST | `/api/services/register` | 注册服务实例 |
+| POST | `/api/services/deregister` | 注销服务实例 |
+| POST | `/api/heartbeat` | 发送心跳 |
 
 ### 请求/响应示例
 
 ```bash
 # 获取服务列表
-curl http://localhost:9998/api/v1/services
+curl http://localhost:9998/api/services
 
 # 注册服务
-curl -X POST http://localhost:9998/api/v1/services/register \
+curl -X POST http://localhost:9998/api/services/register \
   -H "Content-Type: application/json" \
   -d '{
     "instanceId": "instance-001",
@@ -148,7 +137,7 @@ curl -X POST http://localhost:9998/api/v1/services/register \
   }'
 
 # 发送心跳
-curl -X POST http://localhost:9998/api/v1/heartbeat \
+curl -X POST http://localhost:9998/api/heartbeat \
   -H "Content-Type: application/json" \
   -d '{
     "instanceId": "instance-001",
@@ -287,9 +276,10 @@ java -server \
 - **Guava**: 高性能缓存
 
 ### 前端
-- **React 18**: 前端框架
+- **React 19**: 前端框架
+- **React Router 7**: 路由框架
 - **Ant Design 5**: UI组件库
-- **Vite 5**: 构建工具
+- **Vite 7**: 构建工具
 - **Recharts**: 图表组件
 - **Axios**: HTTP客户端
 

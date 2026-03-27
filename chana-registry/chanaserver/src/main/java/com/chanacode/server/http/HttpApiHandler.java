@@ -69,7 +69,24 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 
         try {
             if (method == HttpMethod.POST) {
-                handlePostRequest(ctx, path, request);
+                switch (path) {
+                    case "/api/metrics" -> handleMetrics(ctx);
+                    case "/api/services" -> handleServices(ctx);
+                    case "/api/namespaces" -> handleNamespaces(ctx);
+                    case "/api/health" -> handleHealth(ctx);
+                    case "/api/stats" -> handleStats(ctx);
+                    case "/api/services/register" -> handleRegister(ctx, request.content().toString(StandardCharsets.UTF_8));
+                    case "/api/services/deregister" -> handleDeregister(ctx, request.content().toString(StandardCharsets.UTF_8));
+                    case "/api/heartbeat" -> handleHeartbeat(ctx, request.content().toString(StandardCharsets.UTF_8));
+                    default -> {
+                        if (path.startsWith("/api/services/")) {
+                            String serviceName = path.substring("/api/services/".length());
+                            handleServiceDetail(ctx, serviceName);
+                        } else {
+                            sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Not found"));
+                        }
+                    }
+                }
             } else {
                 switch (path) {
                     case "/api/metrics" -> handleMetrics(ctx);
@@ -90,17 +107,6 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         } catch (Exception e) {
             logger.error("API error: {} {}", method, path, e);
             sendJson(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, Map.of("error", e.getMessage()));
-        }
-    }
-
-    private void handlePostRequest(ChannelHandlerContext ctx, String path, FullHttpRequest request) {
-        String body = request.content().toString(StandardCharsets.UTF_8);
-        
-        switch (path) {
-            case "/api/services/register" -> handleRegister(ctx, body);
-            case "/api/services/deregister" -> handleDeregister(ctx, body);
-            case "/api/heartbeat" -> handleHeartbeat(ctx, body);
-            default -> sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Not found"));
         }
     }
 
