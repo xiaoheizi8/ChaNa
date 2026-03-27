@@ -1,6 +1,10 @@
 # ChaNa Registry - 超高性能服务注册中心
 
 <p align="center">
+  <img src="logo.svg" alt="ChaNa Registry" width="120">
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Version-1.0.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Java-21+-green.svg" alt="Java">
   <img src="https://img.shields.io/badge/Protocol-Netty-orange.svg" alt="Protocol">
