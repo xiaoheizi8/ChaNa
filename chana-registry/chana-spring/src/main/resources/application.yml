@@ -1,0 +1,84 @@
+# ChaNa Registry Spring Boot Configuration
+# ChaNa注册中心 Spring Boot 配置
+
+server:
+  port: 9998
+  address: 0.0.0.0
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 10
+    max-connections: 10000
+    accept-count: 100
+  # JDK 21 虚拟线程配置
+  virtual-threads:
+    enabled: true
+
+spring:
+  application:
+    name: chana-registry
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    serialization:
+      write-dates-as-timestamps: false
+
+# ChaNa 注册中心配置
+chana:
+  registry:
+    # 服务端 host，默认 localhost
+    host: localhost
+    # Netty 端口，默认 9999
+    port: 9999
+    # HTTP API 端口，默认 9998
+    http-port: 9998
+    # 连接超时 (毫秒)，默认 5000
+    connect-timeout: 5000
+    # 读取超时 (毫秒)，默认 10000
+    read-timeout: 10000
+    # 心跳超时 (毫秒)，默认 30000
+    heartbeat-timeout: 30000
+    # 心跳间隔 (毫秒)，默认 5000
+    heartbeat-interval: 5000
+    # 最大权重，默认 100
+    max-weight: 100
+    # 最小权重，默认 1
+    min-weight: 1
+    # 是否自动移除不健康实例，默认 true
+    auto-remove-unhealthy: true
+    # 保护模式阈值 (0.0-1.0)，默认 0.2
+    protection-threshold: 0.2
+
+  cache:
+    # L1 本地缓存 TTL (秒)，默认 5
+    l1-ttl: 5
+    # L2 进程缓存 TTL (秒)，默认 30
+    l2-ttl: 30
+
+  health:
+    # 滑动窗口大小，默认 10
+    window-size: 10
+    # 失败阈值，默认 3
+    failure-threshold: 3
+
+  namespace:
+    # 默认命名空间，默认 default
+    default-namespace: default
+
+# Actuator 配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+# 日志配置
+logging:
+  level:
+    com.chanacode: INFO
+    org.springframework: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
