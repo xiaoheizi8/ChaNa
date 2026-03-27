@@ -12,7 +12,7 @@ class AxiosClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+      baseURL: 'http://localhost:9998',
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
@@ -36,12 +36,11 @@ class AxiosClient {
     this.client.interceptors.response.use(
       (response: AxiosResponse<ApiResponse>) => {
         const { code, message: msg, data } = response.data;
-
         if (code !== 200) {
           message.error(msg || 'Request failed');
           return Promise.reject(new Error(msg));
         }
-
+        response.data = data;
         return response;
       },
       (error: AxiosError) => {
@@ -73,22 +72,22 @@ class AxiosClient {
 
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.get<ApiResponse<T>>(url, config);
-    return response.data.data;
+    return response.data as T;
   }
 
   async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.post<ApiResponse<T>>(url, data, config);
-    return response.data.data;
+    return response.data as T;
   }
 
   async put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.put<ApiResponse<T>>(url, data, config);
-    return response.data.data;
+    return response.data as T;
   }
 
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response = await this.client.delete<ApiResponse<T>>(url, config);
-    return response.data.data;
+    return response.data as T;
   }
 }
 

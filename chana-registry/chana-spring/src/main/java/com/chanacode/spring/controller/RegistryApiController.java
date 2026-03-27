@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
  * @since 2026-03-27
  */
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class RegistryApiController {
 

@@ -49,7 +49,17 @@ public class IncrementalSyncManager {
         this.globalVersion = new AtomicLong(0);
         this.versionLock = new ReentrantReadWriteLock();
     }
-
+    /**
+     * 订阅服务实例变更通知
+     *
+     * <p>客户端通过此方法订阅指定服务的实例变更通知，订阅后服务端将向该客户端推送实例变更事件。</p>
+     *
+     * @param clientId 客户端唯一标识
+     * @param namespace 命名空间
+     * @param serviceName 服务名称
+     * @param currentVersion 客户端当前持有的版本号，用于增量同步
+     * @return {@link SubscriptionResult} 包含当前最新版本和服务实例列表的订阅结果
+     */
     public SubscriptionResult subscribe(String clientId, String namespace, String serviceName, long currentVersion) {
         String key = buildKey(namespace, serviceName);
         clientVersions.put(clientId, currentVersion);
@@ -60,7 +70,15 @@ public class IncrementalSyncManager {
         List<ServiceInstance> instances = snapshot != null ? snapshot.getInstances() : List.of();
         return new SubscriptionResult(snapshot != null ? snapshot.getVersion() : 0, instances);
     }
-
+    /**
+     * 取消订阅服务实例变更通知
+     *
+     * <p>当客户端不再需要接收某服务的变更通知时，调用此方法取消订阅关系。</p>
+     *
+     * @param clientId 客户端唯一标识
+     * @param namespace 命名空间
+     * @param serviceName 服务名称
+     */
     public void unsubscribe(String clientId, String namespace, String serviceName) {
         String key = buildKey(namespace, serviceName);
         CopyOnWriteArrayList<Subscriber> subs = subscribers.get(key);
@@ -69,7 +87,19 @@ public class IncrementalSyncManager {
         }
         clientVersions.remove(clientId);
     }
-
+    /**
+     * 通知服务实例发生变更
+     *
+     * <p>当服务实例发生新增、删除或修改时，调用此方法更新快照并通知所有订阅者。</p>
+     * <p>该方法会生成新的全局版本号，确保版本单调递增。</p>
+     *
+     * @param namespace 命名空间
+     * @param serviceName 服务名称
+     * @param added 新增的服务实例列表
+     * @param removed 被删除的服务实例 ID 列表
+     * @param modified 修改的服务实例列表
+     * @return {@link IncrementalSyncResponse} 包含新版本号和变更详情的响应对象
+     */
     public IncrementalSyncResponse notifyChange(String namespace, String serviceName,
                                                List<ServiceInstance> added,
                                                List<String> removed,
@@ -92,6 +122,17 @@ public class IncrementalSyncManager {
         return new IncrementalSyncResponse(newVersion, added, removed, modified);
     }
 
+    /**
+     * 获取增量变更数据
+     *
+     * <p>客户端通过此方法拉取自上次版本以来的增量变更数据。</p>
+     * <p>若客户端版本与服务端版本一致，则返回空变更列表；否则返回所有变更实例。</p>
+     *
+     * @param clientId 客户端唯一标识
+     * @param namespace 命名空间
+     * @param serviceName 服务名称
+     * @return {@link IncrementalSyncResponse} 包含最新版本和增量变更数据的响应对象
+     */
     public IncrementalSyncResponse getIncrementalChanges(String clientId, String namespace, String serviceName) {
         String key = buildKey(namespace, serviceName);
         long clientVersion = clientVersions.getOrDefault(clientId, 0L);
@@ -108,9 +149,23 @@ public class IncrementalSyncManager {
         clientVersions.put(clientId, snapshot.getVersion());
         return new IncrementalSyncResponse(snapshot.getVersion(), snapshot.getInstances(), List.of(), List.of());
     }
-
+    /**
+     * 获取全局版本号
+     *
+     * <p>返回当前系统的全局版本号，该版本号单调递增，用于标识数据变更的次序。</p>
+     *
+     * @return 全局版本号
+     */
     public long getGlobalVersion() { return globalVersion.get(); }
-
+    /**
+     * 构建服务键值
+     *
+     * <p>将命名空间和服务名组合成唯一的键值，用于内部缓存和订阅管理。</p>
+     *
+     * @param namespace 命名空间
+     * @param serviceName 服务名称
+     * @return 格式化的键值字符串，格式为 "namespace:/serviceName"
+     */
     private String buildKey(String namespace, String serviceName) {
         return namespace + ":/" + serviceName;
     }
@@ -127,7 +182,17 @@ public class IncrementalSyncManager {
             this.instances = new CopyOnWriteArrayList<>();
             this.instanceMap = new ConcurrentHashMap<>();
         }
-
+        /**
+         * 更新服务快照
+         *
+         * <p>根据传入的新增、删除和修改列表更新当前服务实例快照。</p>
+         * <p>该方法保证实例列表和映射表的一致性。</p>
+         *
+         * @param added 新增的服务实例列表
+         * @param removed 被删除的服务实例 ID 列表
+         * @param modified 修改的服务实例列表
+         * @param newVersion 新的版本号
+         */
         void update(List<ServiceInstance> added, List<String> removed, List<ServiceInstance> modified, long newVersion) {
             this.version = newVersion;
 
@@ -158,6 +223,13 @@ public class IncrementalSyncManager {
         }
 
         long getVersion() { return version; }
+        /**
+         * 获取所有服务实例
+         *
+         * <p>返回当前快照中所有服务实例的副本，确保外部无法直接修改内部数据结构。</p>
+         *
+         * @return 服务实例列表的副本
+         */
         List<ServiceInstance> getInstances() { return new ArrayList<>(instances); }
     }
 
