@@ -36,6 +36,7 @@
                 <transformer>
                   <mainClass>com.chanacode.server.bootstrap.ChaNaServer</mainClass>
                 </transformer>
+                <transformer />
               </transformers>
             </configuration>
           </execution>

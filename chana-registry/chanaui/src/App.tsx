@@ -1,94 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { ConfigProvider, Layout, Menu, Spin } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { ConfigProvider, Layout, Menu, Typography, Table, Tag, Card, Row, Col, Statistic, Space } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { 
   DashboardOutlined, ThunderboltOutlined, CloudServerOutlined, 
   GlobalOutlined, HeartOutlined, SettingOutlined, AppstoreOutlined
 } from '@ant-design/icons';
-import { 
-  Dashboard, ServiceDetail, HealthMonitor, InstanceManage, Settings 
-} from './pages';
-import { apiService, ServiceMetrics, ServiceInfo } from './services/api';
+import Dashboard from './pages/Dashboard';
+import ServiceDetail from './pages/ServiceDetail';
+import HealthMonitor from './pages/HealthMonitor';
+import InstanceManage from './pages/InstanceManage';
+import Settings from './pages/Settings';
+import { apiService, ServiceInfo } from './services/api';
 
 const { Header, Sider, Content } = Layout;
-
-const App: React.FC = () => {
-  const [collapsed, setCollapsed] = useState(false);
-  const location = useLocation();
-
-  return (
-    <ConfigProvider locale={zhCN}>
-      <Layout style={{ minHeight: '100vh' }}>
-        <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} theme="dark">
-          <div style={{ 
-            height: 64, 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            color: '#fff', 
-            fontSize: collapsed ? 16 : 20, 
-            fontWeight: 'bold' 
-          }}>
-            {collapsed ? 'CN' : 'ChaNa ⚡'}
-          </div>
-          <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]}>
-            <Menu.Item key="/" icon={<DashboardOutlined />}>
-              <Link to="/">概览</Link>
-            </Menu.Item>
-            <Menu.Item key="/services" icon={<CloudServerOutlined />}>
-              <Link to="/services">服务列表</Link>
-            </Menu.Item>
-            <Menu.Item key="/instances" icon={<AppstoreOutlined />}>
-              <Link to="/instances">实例管理</Link>
-            </Menu.Item>
-            <Menu.Item key="/health" icon={<HeartOutlined />}>
-              <Link to="/health">健康监控</Link>
-            </Menu.Item>
-            <Menu.Item key="/namespaces" icon={<GlobalOutlined />}>
-              <Link to="/namespaces">命名空间</Link>
-            </Menu.Item>
-            <Menu.Item key="/metrics" icon={<ThunderboltOutlined />}>
-              <Link to="/metrics">核心指标</Link>
-            </Menu.Item>
-            <Menu.Item key="/settings" icon={<SettingOutlined />}>
-              <Link to="/settings">设置</Link>
-            </Menu.Item>
-          </Menu>
-        </Sider>
-        <Layout>
-          <Header style={{ 
-            padding: '0 24px', 
-            background: '#fff', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between' 
-          }}>
-            <span style={{ fontSize: 18, fontWeight: 500 }}>ChaNa 注册中心控制台</span>
-            <span style={{ color: '#999' }}>服务端点: localhost:9998</span>
-          </Header>
-          <Content style={{ margin: 0, padding: 0, background: '#f0f2f5', minHeight: 'calc(100vh - 64px)' }}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/services" element={<ServiceListPage />} />
-              <Route path="/services/:serviceName" element={<ServiceDetail />} />
-              <Route path="/instances" element={<InstanceManage />} />
-              <Route path="/health" element={<HealthMonitor />} />
-              <Route path="/namespaces" element={<NamespacePage />} />
-              <Route path="/metrics" element={<CoreMetricsPage />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </Content>
-        </Layout>
-      </Layout>
-    </ConfigProvider>
-  );
-};
-
-import React, { useState, useEffect } from 'react';
-import { Typography, Table, Tag, Card, Row, Col, Statistic, Space, Alert } from 'antd';
-import { Link } from 'react-router-dom';
-
 const { Title, Text } = Typography;
 
 const ServiceListPage: React.FC = () => {
@@ -164,25 +89,105 @@ const NamespacePage: React.FC = () => {
   );
 };
 
-const CoreMetricsPage: React.FC = () => (
-  <div style={{ padding: 24 }}>
-    <Title level={3}><ThunderboltOutlined style={{ marginRight: 8 }} />核心性能指标</Title>
-    <Table size="small" pagination={false} dataSource={[
-      { metric: '写入QPS', chana: '50,000+', consul: '5,000', zookeeper: '8,000', nacos: '10,000', eureka: '3,000' },
-      { metric: '读取QPS', chana: '100,000+', consul: '15,000', zookeeper: '20,000', nacos: '30,000', eureka: '10,000' },
-      { metric: 'P99延迟', chana: '< 1ms', consul: '5ms', zookeeper: '3ms', nacos: '2ms', eureka: '10ms' },
-      { metric: '最大连接', chana: '50,000+', consul: '10,000', zookeeper: '15,000', nacos: '20,000', eureka: '8,000' },
-      { metric: '实例容量', chana: '100,000+', consul: '50,000', zookeeper: '30,000', nacos: '60,000', eureka: '20,000' },
-      { metric: '变更延迟', chana: '< 50ms', consul: '500ms', zookeeper: '100ms', nacos: '200ms', eureka: '30,000ms' },
-    ]} columns={[
-      { title: '指标', dataIndex: 'metric', key: 'metric' },
-      { title: 'ChaNa ⭐', dataIndex: 'chana', key: 'chana', render: (v: string) => <Tag color="green">{v}</Tag> },
-      { title: 'Consul', dataIndex: 'consul', key: 'consul' },
-      { title: 'Zookeeper', dataIndex: 'zookeeper', key: 'zookeeper' },
-      { title: 'Nacos', dataIndex: 'nacos', key: 'nacos' },
-      { title: 'Eureka', dataIndex: 'eureka', key: 'eureka' },
-    ]}/>
-  </div>
+const CoreMetricsPage: React.FC = () => {
+  const [metrics, setMetrics] = useState<any>(null);
+
+  useEffect(() => {
+    apiService.getMetrics().then(setMetrics).catch(console.error);
+  }, []);
+
+  return (
+    <div style={{ padding: 24 }}>
+      <Title level={3}><ThunderboltOutlined style={{ marginRight: 8 }} />核心性能指标</Title>
+      <Table 
+        size="small" 
+        pagination={false} 
+        dataSource={[
+          { metric: '写入QPS', chana: metrics?.registerQps || 0, consul: '5,000', zookeeper: '8,000', nacos: '10,000', eureka: '3,000' },
+          { metric: '读取QPS', chana: metrics?.discoverQps || 0, consul: '15,000', zookeeper: '20,000', nacos: '30,000', eureka: '10,000' },
+          { metric: 'P99延迟', chana: `${metrics?.p99LatencyUs || 0}μs`, consul: '5ms', zookeeper: '3ms', nacos: '2ms', eureka: '10ms' },
+          { metric: '最大连接', chana: metrics?.connections || 0, consul: '10,000', zookeeper: '15,000', nacos: '20,000', eureka: '8,000' },
+          { metric: '总请求数', chana: metrics?.totalRequests || 0, consul: 'N/A', zookeeper: 'N/A', nacos: 'N/A', eureka: 'N/A' },
+          { metric: '平均延迟', chana: `${metrics?.avgLatencyUs || 0}μs`, consul: 'N/A', zookeeper: 'N/A', nacos: 'N/A', eureka: 'N/A' },
+        ]} 
+        columns={[
+          { title: '指标', dataIndex: 'metric', key: 'metric' },
+          { title: 'ChaNa ⭐', dataIndex: 'chana', key: 'chana', render: (v: any) => <Tag color="green">{v}</Tag> },
+          { title: 'Consul', dataIndex: 'consul', key: 'consul' },
+          { title: 'Zookeeper', dataIndex: 'zookeeper', key: 'zookeeper' },
+          { title: 'Nacos', dataIndex: 'nacos', key: 'nacos' },
+          { title: 'Eureka', dataIndex: 'eureka', key: 'eureka' },
+        ]}
+      />
+    </div>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+
+  return (
+    <ConfigProvider locale={zhCN}>
+      <Layout style={{ minHeight: '100vh' }}>
+        <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} theme="dark">
+          <div style={{ 
+            height: 64, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            color: '#fff', 
+            fontSize: collapsed ? 16 : 20, 
+            fontWeight: 'bold' 
+          }}>
+            {collapsed ? 'CN' : 'ChaNa ⚡'}
+          </div>
+          <Menu 
+            theme="dark" 
+            mode="inline" 
+            selectedKeys={[location.pathname]}
+            items={[
+              { key: '/', icon: <DashboardOutlined />, label: <Link to="/">概览</Link> },
+              { key: '/services', icon: <CloudServerOutlined />, label: <Link to="/services">服务列表</Link> },
+              { key: '/instances', icon: <AppstoreOutlined />, label: <Link to="/instances">实例管理</Link> },
+              { key: '/health', icon: <HeartOutlined />, label: <Link to="/health">健康监控</Link> },
+              { key: '/namespaces', icon: <GlobalOutlined />, label: <Link to="/namespaces">命名空间</Link> },
+              { key: '/metrics', icon: <ThunderboltOutlined />, label: <Link to="/metrics">核心指标</Link> },
+              { key: '/settings', icon: <SettingOutlined />, label: <Link to="/settings">设置</Link> },
+            ]}
+          />
+        </Sider>
+        <Layout>
+          <Header style={{ 
+            padding: '0 24px', 
+            background: '#fff', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between' 
+          }}>
+            <span style={{ fontSize: 18, fontWeight: 500 }}>ChaNa 注册中心控制台</span>
+            <span style={{ color: '#999' }}>服务端点: localhost:9998</span>
+          </Header>
+          <Content style={{ margin: 0, padding: 0, background: '#f0f2f5', minHeight: 'calc(100vh - 64px)' }}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/services" element={<ServiceListPage />} />
+              <Route path="/services/:serviceName" element={<ServiceDetail />} />
+              <Route path="/instances" element={<InstanceManage />} />
+              <Route path="/health" element={<HealthMonitor />} />
+              <Route path="/namespaces" element={<NamespacePage />} />
+              <Route path="/metrics" element={<CoreMetricsPage />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Content>
+        </Layout>
+      </Layout>
+    </ConfigProvider>
+  );
+};
+
+const App: React.FC = () => (
+  <AppContent />
 );
 
 export default App;

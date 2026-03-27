@@ -68,24 +68,76 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         HttpMethod method = request.method();
 
         try {
-            switch (path) {
-                case "/api/metrics" -> handleMetrics(ctx);
-                case "/api/services" -> handleServices(ctx);
-                case "/api/namespaces" -> handleNamespaces(ctx);
-                case "/api/health" -> handleHealth(ctx);
-                case "/api/stats" -> handleStats(ctx);
-                default -> {
-                    if (path.startsWith("/api/services/")) {
-                        String serviceName = path.substring("/api/services/".length());
-                        handleServiceDetail(ctx, serviceName);
-                    } else {
-                        sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Not found"));
+            if (method == HttpMethod.POST) {
+                handlePostRequest(ctx, path, request);
+            } else {
+                switch (path) {
+                    case "/api/metrics" -> handleMetrics(ctx);
+                    case "/api/services" -> handleServices(ctx);
+                    case "/api/namespaces" -> handleNamespaces(ctx);
+                    case "/api/health" -> handleHealth(ctx);
+                    case "/api/stats" -> handleStats(ctx);
+                    default -> {
+                        if (path.startsWith("/api/services/")) {
+                            String serviceName = path.substring("/api/services/".length());
+                            handleServiceDetail(ctx, serviceName);
+                        } else {
+                            sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Not found"));
+                        }
                     }
                 }
             }
         } catch (Exception e) {
             logger.error("API error: {} {}", method, path, e);
             sendJson(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void handlePostRequest(ChannelHandlerContext ctx, String path, FullHttpRequest request) {
+        String body = request.content().toString(StandardCharsets.UTF_8);
+        
+        switch (path) {
+            case "/api/services/register" -> handleRegister(ctx, body);
+            case "/api/services/deregister" -> handleDeregister(ctx, body);
+            case "/api/heartbeat" -> handleHeartbeat(ctx, body);
+            default -> sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Not found"));
+        }
+    }
+
+    private void handleRegister(ChannelHandlerContext ctx, String body) {
+        try {
+            ServiceInstance instance = JSON.parseObject(body, ServiceInstance.class);
+            boolean success = registry.register(instance);
+            sendJson(ctx, HttpResponseStatus.OK, Map.of("success", success, "instanceId", instance.getInstanceId()));
+        } catch (Exception e) {
+            logger.error("Register error", e);
+            sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void handleDeregister(ChannelHandlerContext ctx, String body) {
+        try {
+            Map<String, String> data = JSON.parseObject(body, Map.class);
+            String instanceId = data.get("instanceId");
+            String serviceName = data.get("serviceName");
+            String namespace = data.getOrDefault("namespace", RegistryConstants.DEFAULT_NAMESPACE);
+            boolean success = registry.deregister(instanceId, serviceName, namespace);
+            sendJson(ctx, HttpResponseStatus.OK, Map.of("success", success));
+        } catch (Exception e) {
+            logger.error("Deregister error", e);
+            sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void handleHeartbeat(ChannelHandlerContext ctx, String body) {
+        try {
+            Map<String, String> data = JSON.parseObject(body, Map.class);
+            String instanceId = data.get("instanceId");
+            boolean success = registry.heartbeat(instanceId);
+            sendJson(ctx, HttpResponseStatus.OK, Map.of("success", success));
+        } catch (Exception e) {
+            logger.error("Heartbeat error", e);
+            sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", e.getMessage()));
         }
     }
 

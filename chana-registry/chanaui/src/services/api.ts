@@ -34,6 +34,7 @@ export interface ServiceInstance {
   version: string;
   lastHeartbeatTime: number;
   registrationTime: number;
+  namespace?: string;
 }
 
 export interface ServiceDetail {
@@ -68,35 +69,35 @@ export interface ServerStats {
 
 class ChanaApiService {
   async getMetrics(): Promise<ServiceMetrics> {
-    return axiosClient.get<ServiceMetrics>('/v1/metrics');
+    return axiosClient.get<ServiceMetrics>('/api/metrics');
   }
 
   async getServices(): Promise<ServiceInfo[]> {
-    return axiosClient.get<ServiceInfo[]>('/v1/services');
+    return axiosClient.get<ServiceInfo[]>('/api/services');
   }
 
   async getServiceDetail(serviceName: string, namespace = 'default'): Promise<ServiceDetail> {
-    return axiosClient.get<ServiceDetail>(`/v1/services/${serviceName}?namespace=${namespace}`);
+    return axiosClient.get<ServiceDetail>(`/api/services/${serviceName}?namespace=${namespace}`);
   }
 
   async getNamespaces(): Promise<NamespaceInfo[]> {
-    return axiosClient.get<NamespaceInfo[]>('/v1/namespaces');
+    return axiosClient.get<NamespaceInfo[]>('/api/namespaces');
   }
 
   async getHealth(): Promise<HealthStatus> {
-    return axiosClient.get<HealthStatus>('/v1/health');
+    return axiosClient.get<HealthStatus>('/api/health');
   }
 
   async getStats(): Promise<ServerStats> {
-    return axiosClient.get<ServerStats>('/v1/stats');
+    return axiosClient.get<ServerStats>('/api/stats');
   }
 
   async registerService(instance: Partial<ServiceInstance>): Promise<void> {
-    return axiosClient.post('/v1/services/register', instance);
+    return axiosClient.post('/api/services/register', instance);
   }
 
   async deregisterService(instanceId: string, serviceName: string, namespace = 'default'): Promise<void> {
-    return axiosClient.post('/v1/services/deregister', {
+    return axiosClient.post('/api/services/deregister', {
       instanceId,
       serviceName,
       namespace,
@@ -104,7 +105,7 @@ class ChanaApiService {
   }
 
   async sendHeartbeat(instanceId: string, serviceName: string, namespace = 'default'): Promise<void> {
-    return axiosClient.post('/v1/heartbeat', {
+    return axiosClient.post('/api/heartbeat', {
       instanceId,
       serviceName,
       namespace,

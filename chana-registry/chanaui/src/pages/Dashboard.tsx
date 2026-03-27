@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Row, Col, Statistic, Typography, Space, Table, Tag, Alert } from 'antd';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { CloudServerOutlined } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import { apiService, ServiceMetrics, ServiceInfo } from '../services/api';
 
 const { Title, Text } = Typography;
@@ -30,33 +32,16 @@ const Dashboard: React.FC = () => {
       setLatencyData(prev => {
         const newData = {
           time: new Date().toLocaleTimeString(),
-          p50: metricsData.p50LatencyUs * (0.9 + Math.random() * 0.2),
-          avg: metricsData.avgLatencyUs * (0.9 + Math.random() * 0.2),
-          p90: metricsData.p90LatencyUs * (0.9 + Math.random() * 0.2),
-          p99: metricsData.p99LatencyUs * (0.9 + Math.random() * 0.2),
+          p50: metricsData.p50LatencyUs,
+          avg: metricsData.avgLatencyUs,
+          p90: metricsData.p90LatencyUs,
+          p99: metricsData.p99LatencyUs,
         };
         const updated = [...prev, newData].slice(-10);
         return updated;
       });
     } catch (error) {
-      console.warn('Using mock data');
-      setMetrics({
-        qps: 52340,
-        registerQps: 18560,
-        discoverQps: 33780,
-        heartbeatQps: 65200,
-        connections: 48500,
-        avgLatencyUs: 180,
-        p50LatencyUs: 120,
-        p90LatencyUs: 380,
-        p99LatencyUs: 890,
-        totalRequests: 1250000
-      });
-      setServices([
-        { serviceName: 'order-service', namespace: 'default', instanceCount: 5, healthyCount: 5, unhealthyCount: 0, version: '1.0.0' },
-        { serviceName: 'payment-service', namespace: 'default', instanceCount: 3, healthyCount: 3, unhealthyCount: 0, version: '2.1.0' },
-        { serviceName: 'user-service', namespace: 'default', instanceCount: 4, healthyCount: 4, unhealthyCount: 0, version: '1.5.2' },
-      ]);
+      console.error('Failed to fetch data:', error);
     }
   }, []);
 
@@ -149,8 +134,5 @@ const Dashboard: React.FC = () => {
     </div>
   );
 };
-
-import { CloudServerOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
 
 export default Dashboard;
