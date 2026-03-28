@@ -1,0 +1,16 @@
+
+${AnsiColor.BRIGHT_GREEN}
+${AnsiColor.BRIGHT_YELLOW}    _ __                          _   __  __   ___  _   __
+${AnsiColor.BRIGHT_YELLOW}   / / /___  ____  _      __      / | / /  |/  / / /| | / /_
+${AnsiColor.BRIGHT_YELLOW}  / / / __ \/ __ \| | /| / /____/  |/ /  |/  / / __/ __/ / __ \
+${AnsiColor.BRIGHT_YELLOW} / / / /_/ / /_/ / |/ |/ /_____/ /|  /  |  / / /_ / /_/ / /_/ /
+${AnsiColor.BRIGHT_YELLOW}/_/  \____/\____/|__/|__/     /_/ |_/   |___/ \__/\____/\____/
+
+${AnsiColor.BRIGHT_CYAN}  :: ChaNa Registry ::${AnsiColor.NORMAL}        (v${application.version})
+${AnsiColor.BRIGHT_WHITE}  Spring Boot :: ${spring-boot.version}${AnsiColor.NORMAL}
+${AnsiColor.BRIGHT_WHITE}  JDK :: ${java.version}${AnsiColor.NORMAL}
+
+${AnsiColor.BRIGHT_GREEN}  ★ Ultra High Performance Service Registry Center
+${AnsiColor.BRIGHT_GREEN}  ★ Write QPS: 50,000+ | Read QPS: 100,000+ | P99 < 1ms
+
+${AnsiColor.BRIGHT_YELLOW}:: Starting ChaNa Registry Server ::${AnsiColor.NORMAL}

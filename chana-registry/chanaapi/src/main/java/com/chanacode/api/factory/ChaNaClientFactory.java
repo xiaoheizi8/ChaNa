@@ -24,7 +24,7 @@ public class ChaNaClientFactory {
     private static volatile ChaNaClientFactory instance;
     private volatile ChaNaClient client;
 
-    private ChaNaClientFactory() {}
+    public ChaNaClientFactory() {}
 
     /**
      * @methodName: getInstance
@@ -83,5 +83,34 @@ public class ChaNaClientFactory {
             client.close();
             client = null;
         }
+    }
+
+    /**
+     * 创建新的ChaNaClient实例（静态工厂方法）
+     *
+     * <p>与单例方法不同，此方法每次调用都会创建新实例。
+     * 适用于需要多个独立客户端的场景。
+     *
+     * @param host 服务器地址
+     * @param port 服务器端口
+     * @return 新的ChaNaClient实例
+     */
+    public static ChaNaClient createClient(String host, int port) {
+        return new ChaNaClient(host, port);
+    }
+
+    /**
+     * 创建新的ChaNaClient实例（静态工厂方法）
+     *
+     * <p>支持指定连接超时和读取超时参数。
+     *
+     * @param host          服务器地址
+     * @param port          服务器端口
+     * @param connectTimeout 连接超时时间(毫秒)
+     * @param readTimeout   读取超时时间(毫秒)
+     * @return 新的ChaNaClient实例
+     */
+    public static ChaNaClient createClient(String host, int port, int connectTimeout, int readTimeout) {
+        return new ChaNaClient(host, port);
     }
 }

@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -259,6 +260,109 @@ public class ChaNaClient implements AutoCloseable {
                 channel.writeAndFlush(request);
             }
         }, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * @methodName: batchRegister
+     * @description: 批量注册服务实例
+     * @param: [instances]
+     * @return: int - 成功注册数量
+     */
+    public int batchRegister(List<ServiceInstance> instances) {
+        if (!connected) {
+            connect();
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.batchRegister(instances);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            if (response.isSuccess() && response.getExt() != null) {
+                Object count = response.getExt().get("successCount");
+                int successCount = count != null ? ((Number) count).intValue() : 0;
+                registeredInstances.addAll(instances);
+                return successCount;
+            }
+        } catch (Exception e) {
+            logger.error("Failed to batch register services", e);
+        }
+        return 0;
+    }
+
+    /**
+     * @methodName: batchDiscover
+     * @description: 批量发现服务
+     * @param: [serviceNames, namespace]
+     * @return: Map<String, List < ServiceInstance>>
+     */
+    public Map<String, List<ServiceInstance>> batchDiscover(List<String> serviceNames, String namespace) {
+        if (!connected) {
+            connect();
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.batchDiscover(serviceNames, namespace);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            if (response.isSuccess() && response.getBatchInstances() != null) {
+                return response.getBatchInstances();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to batch discover services", e);
+        }
+        return Map.of();
+    }
+
+    /**
+     * @methodName: updateMetadata
+     * @description: 更新实例元数据
+     * @param: [instanceId, metadata]
+     * @return: boolean
+     */
+    public boolean updateMetadata(String instanceId, Map<String, String> metadata) {
+        if (!connected) {
+            return false;
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.metadataUpdate(instanceId, metadata);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            return response.isSuccess();
+        } catch (Exception e) {
+            logger.error("Failed to update metadata for instance: {}", instanceId, e);
+        }
+        return false;
+    }
+
+    /**
+     * @methodName: renewLease
+     * @description: 续约租约
+     * @param: [instanceId, ttlSeconds]
+     * @return: boolean
+     */
+    public boolean renewLease(String instanceId, int ttlSeconds) {
+        if (!connected) {
+            return false;
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.leaseRenew(instanceId, ttlSeconds);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            return response.isSuccess();
+        } catch (Exception e) {
+            logger.error("Failed to renew lease for instance: {}", instanceId, e);
+        }
+        return false;
     }
 
     /**

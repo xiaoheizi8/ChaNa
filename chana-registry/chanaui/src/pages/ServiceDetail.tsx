@@ -1,24 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Card, Table, Tag, Button, Space, Typography, Descriptions, Spin, message } from 'antd';
-import { ArrowLeftOutlined, SyncOutlined } from '@ant-design/icons';
+import { Card, Table, Tag, Button, Space, Typography, Descriptions, Spin } from 'antd';
+import { ArrowLeftOutlined, SyncOutlined, CloudServerOutlined } from '@ant-design/icons';
 import { apiService, ServiceInstance } from '../services/api';
+import { useI18n } from '../i18n';
 
 const { Title, Text } = Typography;
 
 const ServiceDetail: React.FC = () => {
+  const { t } = useI18n();
   const { serviceName } = useParams<{ serviceName: string }>();
   const [loading, setLoading] = useState(true);
   const [instances, setInstances] = useState<ServiceInstance[]>([]);
-  const [namespace, setNamespace] = useState('default');
+  const [namespace] = useState('default');
 
   const fetchDetail = async () => {
     if (!serviceName) return;
+    setLoading(true);
     try {
       const detail = await apiService.getServiceDetail(serviceName, namespace);
-      setInstances(detail.instances);
+      setInstances(detail?.instances || []);
     } catch (error) {
-      message.error('Failed to fetch service detail');
+      console.error('Failed to fetch service detail', error);
+      setInstances([]);
     } finally {
       setLoading(false);
     }
@@ -26,93 +30,36 @@ const ServiceDetail: React.FC = () => {
 
   useEffect(() => {
     fetchDetail();
-  }, [serviceName, namespace]);
+  }, [serviceName]);
 
   const columns = [
-    {
-      title: 'Instance ID',
-      dataIndex: 'instanceId',
-      key: 'instanceId',
-      render: (text: string) => <Text code>{text.substring(0, 8)}...</Text>,
-    },
-    {
-      title: 'Host',
-      dataIndex: 'host',
-      key: 'host',
-    },
-    {
-      title: 'Port',
-      dataIndex: 'port',
-      key: 'port',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'healthy',
-      key: 'healthy',
-      render: (healthy: boolean) => (
-        <Tag color={healthy ? 'green' : 'red'}>
-          {healthy ? 'Healthy' : 'Unhealthy'}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Weight',
-      dataIndex: 'weight',
-      key: 'weight',
-    },
-    {
-      title: 'Version',
-      dataIndex: 'version',
-      key: 'version',
-      render: (v: string) => <Tag color="blue">{v}</Tag>,
-    },
-    {
-      title: 'Last Heartbeat',
-      dataIndex: 'lastHeartbeatTime',
-      key: 'lastHeartbeatTime',
-      render: (time: number) => new Date(time).toLocaleString(),
-    },
-    {
-      title: 'Registration Time',
-      dataIndex: 'registrationTime',
-      key: 'registrationTime',
-      render: (time: number) => new Date(time).toLocaleString(),
-    },
+    { title: t.instanceId, dataIndex: 'instanceId', key: 'instanceId', render: (text: string) => <Text code>{text?.substring(0, 8)}...</Text> },
+    { title: t.host, dataIndex: 'host', key: 'host' },
+    { title: t.port, dataIndex: 'port', key: 'port' },
+    { title: t.status, dataIndex: 'healthy', key: 'healthy', render: (healthy: boolean) => <Tag color={healthy ? 'green' : 'red'}>{healthy ? t.healthy : t.unhealthy}</Tag> },
+    { title: t.weight, dataIndex: 'weight', key: 'weight' },
+    { title: t.instanceVersion, dataIndex: 'version', key: 'version', render: (v: string) => <Tag color="blue">{v}</Tag> },
+    { title: t.lastCheck, dataIndex: 'lastHeartbeatTime', key: 'lastHeartbeatTime', render: (time: number) => time ? new Date(time).toLocaleString() : '-' },
   ];
 
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16 }}>
-        <Link to="/services">
-          <Button icon={<ArrowLeftOutlined />}>Back</Button>
-        </Link>
-        <Button icon={<SyncOutlined />} onClick={fetchDetail}>
-          Refresh
-        </Button>
+        <Link to="/services"><Button icon={<ArrowLeftOutlined />}>Back</Button></Link>
+        <Button icon={<SyncOutlined />} onClick={fetchDetail}>{t.refresh}</Button>
       </Space>
-
       <Card>
-        <Descriptions title={`Service: ${serviceName}`} bordered>
-          <Descriptions.Item label="Service Name">{serviceName}</Descriptions.Item>
-          <Descriptions.Item label="Namespace">{namespace}</Descriptions.Item>
-          <Descriptions.Item label="Total Instances">{instances.length}</Descriptions.Item>
-          <Descriptions.Item label="Healthy">
-            {instances.filter(i => i.healthy).length}
-          </Descriptions.Item>
-          <Descriptions.Item label="Unhealthy">
-            {instances.filter(i => !i.healthy).length}
-          </Descriptions.Item>
+        <Descriptions title={<Space><CloudServerOutlined />{serviceName}</Space>} bordered>
+          <Descriptions.Item label={t.serviceName}>{serviceName}</Descriptions.Item>
+          <Descriptions.Item label={t.namespace}>{namespace}</Descriptions.Item>
+          <Descriptions.Item label={t.instanceCount}>{instances.length}</Descriptions.Item>
+          <Descriptions.Item label={t.healthy}>{instances.filter(i => i.healthy).length}</Descriptions.Item>
+          <Descriptions.Item label={t.unhealthy}>{instances.filter(i => !i.healthy).length}</Descriptions.Item>
         </Descriptions>
       </Card>
-
-      <Card title="Instance List" style={{ marginTop: 16 }}>
+      <Card title={t.servicesList} style={{ marginTop: 16 }}>
         <Spin spinning={loading}>
-          <Table
-            columns={columns}
-            dataSource={instances}
-            rowKey="instanceId"
-            pagination={{ pageSize: 10 }}
-          />
+          <Table columns={columns} dataSource={instances} rowKey="instanceId" pagination={{ pageSize: 10 }} />
         </Spin>
       </Card>
     </div>

@@ -67,6 +67,11 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         String path = uri.split("\\?")[0];
         HttpMethod method = request.method();
 
+        if (method == HttpMethod.OPTIONS) {
+            sendCorsResponse(ctx);
+            return;
+        }
+
         try {
             if (method == HttpMethod.POST) {
                 switch (path) {
@@ -258,9 +263,14 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         Map<String, Object> health = new LinkedHashMap<>();
         health.put("status", "UP");
         health.put("timestamp", System.currentTimeMillis());
-        health.put("healthyInstances", healthChecker.getHealthyCount());
-        health.put("unhealthyInstances", healthChecker.getUnhealthyCount());
-        health.put("protectionMode", healthChecker.shouldProtect());
+        try {
+            health.put("healthyInstances", healthChecker.getHealthyCount());
+            health.put("unhealthyInstances", healthChecker.getUnhealthyCount());
+        } catch (Exception e) {
+            health.put("healthyInstances", 0);
+            health.put("unhealthyInstances", 0);
+        }
+        health.put("protectionMode", false);
         sendJson(ctx, HttpResponseStatus.OK, health);
     }
 
@@ -272,6 +282,16 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         stats.put("totalDiscovers", registry.getTotalDiscovers());
         stats.put("globalVersion", syncManager.getGlobalVersion());
         sendJson(ctx, HttpResponseStatus.OK, stats);
+    }
+
+    private void sendCorsResponse(ChannelHandlerContext ctx) {
+        FullHttpResponse response = new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1, HttpResponseStatus.OK);
+        response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS");
+        response.headers().set(HttpHeaderNames.ACCESS_CONTROL_ALLOW_HEADERS, "Content-Type, Authorization, X-Requested-With");
+        response.headers().set(HttpHeaderNames.ACCESS_CONTROL_MAX_AGE, "3600");
+        ctx.writeAndFlush(response);
     }
 
     private void sendJson(ChannelHandlerContext ctx, HttpResponseStatus status, Object data) {

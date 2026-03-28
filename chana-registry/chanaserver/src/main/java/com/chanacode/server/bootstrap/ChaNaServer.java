@@ -8,6 +8,7 @@ import com.chanacode.core.metrics.HighPrecisionMetricsCollector;
 import com.chanacode.core.namespace.NamespaceManager;
 import com.chanacode.core.registry.ServiceRegistry;
 import com.chanacode.core.sync.IncrementalSyncManager;
+import com.chanacode.server.config.ChaNaProperties;
 import com.chanacode.server.http.HttpApiHandler;
 import com.chanacode.server.netty.ProtocolCodec;
 import com.chanacode.server.netty.RegistryServerHandler;
@@ -24,8 +25,12 @@ import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationStartedEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -57,10 +62,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @version 1.0.0
  * @since 2026-03-27
  */
+@Component
 public class ChaNaServer {
 
     private static final Logger logger = LoggerFactory.getLogger(ChaNaServer.class);
 
+    private final ChaNaProperties properties;
     private final ServiceRegistry registry;
     private final RegistryCacheManager cacheManager;
     private final SlidingWindowHealthChecker healthChecker;
@@ -76,15 +83,27 @@ public class ChaNaServer {
     private Channel serverChannel;
     private Channel httpChannel;
 
-    public ChaNaServer() {
-        this.registry = new ServiceRegistry();
-        this.cacheManager = new RegistryCacheManager();
-        this.healthChecker = new SlidingWindowHealthChecker();
-        this.namespaceManager = new NamespaceManager();
-        this.syncManager = new IncrementalSyncManager();
-        this.metrics = new HighPrecisionMetricsCollector();
+    public ChaNaServer(ChaNaProperties properties,
+                       ServiceRegistry registry,
+                       RegistryCacheManager cacheManager,
+                       SlidingWindowHealthChecker healthChecker,
+                       NamespaceManager namespaceManager,
+                       IncrementalSyncManager syncManager,
+                       HighPrecisionMetricsCollector metrics) {
+        this.properties = properties;
+        this.registry = registry;
+        this.cacheManager = cacheManager;
+        this.healthChecker = healthChecker;
+        this.namespaceManager = namespaceManager;
+        this.syncManager = syncManager;
+        this.metrics = metrics;
         this.scheduler = Executors.newScheduledThreadPool(3);
         this.running = new AtomicBoolean(false);
+    }
+
+    @EventListener(ApplicationStartedEvent.class)
+    public void onApplicationStarted() {
+        start(properties.getNetty().getPort());
     }
 
     /**
@@ -136,7 +155,7 @@ public class ChaNaServer {
 
             serverChannel = bootstrap.bind(port).sync().channel();
 
-            startHttpServer(RegistryConstants.HTTP_PORT);
+            startHttpServer(properties.getHttp().getPort());
             startHealthCheck();
             startMetricsReporter();
 
@@ -265,24 +284,8 @@ public class ChaNaServer {
         logger.info("ChaNa Registry Server shutdown complete");
     }
 
-    /**
-     * @methodName: main
-     * @description: 主入口
-     * @param: [args]
-     * @return: void
-     */
-    public static void main(String[] args) {
-        int port = args.length > 0 ? Integer.parseInt(args[0]) : RegistryConstants.GRPC_PORT;
-
-        ChaNaServer server = new ChaNaServer();
-        Runtime.getRuntime().addShutdownHook(new Thread(server::shutdown));
-
-        server.start(port);
-
-        try {
-            Thread.currentThread().join();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+    @PreDestroy
+    public void preDestroy() {
+        shutdown();
     }
 }

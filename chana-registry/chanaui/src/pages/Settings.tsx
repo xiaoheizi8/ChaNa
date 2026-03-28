@@ -1,75 +1,43 @@
 import React from 'react';
-import { Card, Form, Input, InputNumber, Switch, Button, Typography, Space, Divider, message } from 'antd';
+import { Card, Form, InputNumber, Button, Typography, Space } from 'antd';
+import { SettingOutlined, SaveOutlined } from '@ant-design/icons';
+import { useI18n } from '../i18n';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
 const Settings: React.FC = () => {
+  const { t } = useI18n();
   const [form] = Form.useForm();
 
   const handleSave = (values: any) => {
     console.log('Settings saved:', values);
-    message.success('Settings saved successfully');
   };
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={3}>Settings</Title>
+      <Title level={3}><SettingOutlined style={{ marginRight: 8 }} />{t.systemSettings}</Title>
 
       <Card title="Server Configuration" style={{ marginBottom: 16 }}>
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={{
-            nettyPort: 9999,
-            httpPort: 9998,
-            bossThreads: 2,
-            workerThreads: 16,
-          }}
-          onFinish={handleSave}
-        >
-          <Form.Item label="Netty Port" name="nettyPort">
-            <InputNumber min={1} max={65535} />
-          </Form.Item>
-          <Form.Item label="HTTP API Port" name="httpPort">
-            <InputNumber min={1} max={65535} />
-          </Form.Item>
-          <Form.Item label="Boss Threads" name="bossThreads">
-            <InputNumber min={1} max={32} />
-          </Form.Item>
-          <Form.Item label="Worker Threads" name="workerThreads">
-            <InputNumber min={1} max={128} />
-          </Form.Item>
-          <Button type="primary" htmlType="submit">Save</Button>
+        <Form form={form} layout="vertical" initialValues={{ nettyPort: 9999, httpPort: 9998 }} onFinish={handleSave}>
+          <Form.Item label={t.nettyPort} name="nettyPort"><InputNumber min={1} max={65535} style={{ width: 200 }} /></Form.Item>
+          <Form.Item label={t.httpPort} name="httpPort"><InputNumber min={1} max={65535} style={{ width: 200 }} /></Form.Item>
+          <Form.Item><Button type="primary" htmlType="submit" icon={<SaveOutlined />}>{t.save}</Button></Form.Item>
         </Form>
       </Card>
 
-      <Card title="Health Check Configuration" style={{ marginBottom: 16 }}>
-        <Form layout="vertical" initialValues={{}} onFinish={handleSave}>
-          <Form.Item label="Health Check Interval (seconds)" name="healthCheckInterval">
-            <InputNumber min={1} max={60} defaultValue={5} />
-          </Form.Item>
-          <Form.Item label="Heartbeat Timeout (milliseconds)" name="heartbeatTimeout">
-            <InputNumber min={1000} max={60000} defaultValue={15000} />
-          </Form.Item>
-          <Form.Item label="Protection Threshold" name="protectionThreshold" extra="Percentage of healthy instances below which protection mode activates">
-            <InputNumber min={0} max={1} step={0.1} defaultValue={0.2} />
-          </Form.Item>
-          <Button type="primary" htmlType="submit">Save</Button>
+      <Card title="Health Check" style={{ marginBottom: 16 }}>
+        <Form layout="vertical" initialValues={{ healthCheckInterval: 5, heartbeatTimeout: 15000 }} onFinish={handleSave}>
+          <Form.Item label={t.healthCheckInterval} name="healthCheckInterval"><InputNumber min={1} max={60} style={{ width: 200 }} /></Form.Item>
+          <Form.Item label={t.heartbeatTimeout} name="heartbeatTimeout"><InputNumber min={1000} max={60000} style={{ width: 200 }} /></Form.Item>
+          <Form.Item><Button type="primary" htmlType="submit" icon={<SaveOutlined />}>{t.save}</Button></Form.Item>
         </Form>
       </Card>
 
-      <Card title="Cache Configuration">
-        <Form layout="vertical" initialValues={{}} onFinish={handleSave}>
-          <Form.Item label="L1 Cache TTL (seconds)" name="l1CacheTtl">
-            <InputNumber min={1} max={60} defaultValue={5} />
-          </Form.Item>
-          <Form.Item label="L2 Cache TTL (seconds)" name="l2CacheTtl">
-            <InputNumber min={10} max={300} defaultValue={30} />
-          </Form.Item>
-          <Form.Item label="L1 Cache Size" name="l1CacheSize">
-            <InputNumber min={100} max={100000} defaultValue={10000} />
-          </Form.Item>
-          <Button type="primary" htmlType="submit">Save</Button>
+      <Card title="Cache">
+        <Form layout="vertical" initialValues={{ l1CacheTtl: 5, l2CacheTtl: 30 }} onFinish={handleSave}>
+          <Form.Item label="L1 Cache TTL (s)" name="l1CacheTtl"><InputNumber min={1} max={60} style={{ width: 200 }} /></Form.Item>
+          <Form.Item label="L2 Cache TTL (s)" name="l2CacheTtl"><InputNumber min={10} max={300} style={{ width: 200 }} /></Form.Item>
+          <Form.Item><Button type="primary" htmlType="submit" icon={<SaveOutlined />}>{t.save}</Button></Form.Item>
         </Form>
       </Card>
     </div>

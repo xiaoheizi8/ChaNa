@@ -12,7 +12,9 @@ import com.chanacode.core.registry.ServiceRegistry;
 import com.chanacode.core.sync.IncrementalSyncManager;
 import io.netty.channel.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * ChaNa Netty请求处理器
@@ -70,6 +72,12 @@ public class RegistryServerHandler extends SimpleChannelInboundHandler<RegistryR
                 case MessageType.DEREGISTER -> handleDeregister(ctx, request);
                 case MessageType.HEARTBEAT -> handleHeartbeat(ctx, request);
                 case MessageType.DISCOVER -> handleDiscover(ctx, request);
+                case MessageType.BATCH_REGISTER -> handleBatchRegister(ctx, request);
+                case MessageType.BATCH_DISCOVER -> handleBatchDiscover(ctx, request);
+                case MessageType.METADATA_UPDATE -> handleMetadataUpdate(ctx, request);
+                case MessageType.LEASE_RENEW -> handleLeaseRenew(ctx, request);
+                case MessageType.SUBSCRIBE -> handleSubscribe(ctx, request);
+                case MessageType.UNSUBSCRIBE -> handleUnsubscribe(ctx, request);
                 default -> sendError(ctx, request.getRequestId(), 400, "Unknown message type");
             }
         } finally {
@@ -173,5 +181,87 @@ public class RegistryServerHandler extends SimpleChannelInboundHandler<RegistryR
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         ctx.close();
+    }
+
+    private void handleBatchRegister(ChannelHandlerContext ctx, RegistryRequest request) {
+        List<ServiceInstance> instances = request.getInstances();
+        if (instances == null || instances.isEmpty()) {
+            sendError(ctx, request.getRequestId(), 400, "Empty instances");
+            return;
+        }
+
+        int successCount = 0;
+        for (ServiceInstance instance : instances) {
+            if (registry.register(instance)) {
+                namespaceManager.registerService(request.getNamespace(), instance);
+                successCount++;
+            }
+        }
+
+        cacheManager.invalidate(request.getNamespace(), request.getServiceName());
+        metrics.incrementRegister();
+
+        RegistryResponse response = RegistryResponse.success(request.getRequestId());
+        response.setExt(Map.of("successCount", successCount, "totalCount", instances.size()));
+        sendResponse(ctx, response);
+    }
+
+    private void handleBatchDiscover(ChannelHandlerContext ctx, RegistryRequest request) {
+        List<String> serviceNames = request.getServiceNames();
+        if (serviceNames == null || serviceNames.isEmpty()) {
+            sendError(ctx, request.getRequestId(), 400, "Empty service names");
+            return;
+        }
+
+        Map<String, List<ServiceInstance>> batchInstances = new java.util.HashMap<>();
+        for (String serviceName : serviceNames) {
+            List<ServiceInstance> instances = registry.discoverHealthy(serviceName, request.getNamespace());
+            batchInstances.put(serviceName, instances);
+        }
+
+        metrics.incrementDiscover();
+        RegistryResponse response = RegistryResponse.batchSuccess(request.getRequestId(), batchInstances);
+        sendResponse(ctx, response);
+    }
+
+    private void handleMetadataUpdate(ChannelHandlerContext ctx, RegistryRequest request) {
+        String instanceId = request.getInstanceId();
+        ServiceInstance instance = registry.getInstance(instanceId);
+        
+        if (instance == null) {
+            sendError(ctx, request.getRequestId(), 404, "Instance not found");
+            return;
+        }
+
+        instance.getMetadata().putAll(request.getMetadata());
+        cacheManager.invalidate(request.getNamespace(), instance.getServiceName());
+        
+        sendResponse(ctx, RegistryResponse.success(request.getRequestId()));
+    }
+
+    private void handleLeaseRenew(ChannelHandlerContext ctx, RegistryRequest request) {
+        String instanceId = request.getInstanceId();
+        ServiceInstance instance = registry.getInstance(instanceId);
+        
+        if (instance == null) {
+            sendError(ctx, request.getRequestId(), 404, "Instance not found");
+            return;
+        }
+
+        instance.updateHeartbeat(System.currentTimeMillis());
+        int ttlSeconds = request.getTtlSeconds() > 0 ? request.getTtlSeconds() : 30;
+        
+        sendResponse(ctx, RegistryResponse.leaseResponse(request.getRequestId(), ttlSeconds));
+    }
+
+    private void handleSubscribe(ChannelHandlerContext ctx, RegistryRequest request) {
+        String subscriptionId = request.getNamespace() + ":/" + request.getServiceName() + ":" + ctx.channel().id();
+        RegistryResponse response = RegistryResponse.success(request.getRequestId());
+        response.setSubscriptionId(subscriptionId);
+        sendResponse(ctx, response);
+    }
+
+    private void handleUnsubscribe(ChannelHandlerContext ctx, RegistryRequest request) {
+        sendResponse(ctx, RegistryResponse.success(request.getRequestId()));
     }
 }

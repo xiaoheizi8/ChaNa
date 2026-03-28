@@ -51,6 +51,18 @@ public class RegistryResponse {
     
     /** 处理时间(微秒) */
     private long processTimeUs;
+    
+    /** 批量服务发现结果 Map<服务名, 实例列表> */
+    private Map<String, List<ServiceInstance>> batchInstances;
+    
+    /** 服务变更类型 (ADD/UPDATE/DELETE) */
+    private String changeType;
+    
+    /** 订阅ID */
+    private String subscriptionId;
+    
+    /** TTL剩余时间(秒) */
+    private int ttlSeconds;
 
     /**
      * @methodName: success
@@ -105,5 +117,54 @@ public class RegistryResponse {
      */
     public boolean isSuccess() {
         return code == 200;
+    }
+
+    /**
+     * @methodName: batchSuccess
+     * @description: 批量发现成功响应
+     * @param: [requestId, batchInstances]
+     * @return: RegistryResponse
+     */
+    public static RegistryResponse batchSuccess(long requestId, Map<String, List<ServiceInstance>> batchInstances) {
+        return RegistryResponse.builder()
+                .requestId(requestId)
+                .code(200)
+                .message("success")
+                .batchInstances(batchInstances)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
+    /**
+     * @methodName: push
+     * @description: 创建推送响应
+     * @param: [subscriptionId, instances, changeType]
+     * @return: RegistryResponse
+     */
+    public static RegistryResponse push(String subscriptionId, List<ServiceInstance> instances, String changeType) {
+        return RegistryResponse.builder()
+                .code(200)
+                .message("push")
+                .subscriptionId(subscriptionId)
+                .instances(instances)
+                .changeType(changeType)
+                .timestamp(System.currentTimeMillis())
+                .build();
+    }
+
+    /**
+     * @methodName: leaseResponse
+     * @description: 租约响应
+     * @param: [requestId, ttlSeconds]
+     * @return: RegistryResponse
+     */
+    public static RegistryResponse leaseResponse(long requestId, int ttlSeconds) {
+        return RegistryResponse.builder()
+                .requestId(requestId)
+                .code(200)
+                .message("lease renewed")
+                .ttlSeconds(ttlSeconds)
+                .timestamp(System.currentTimeMillis())
+                .build();
     }
 }
