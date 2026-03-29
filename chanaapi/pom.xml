@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.chanacode</groupId>
+        <artifactId>chana-registry</artifactId>
+        <version>3.0.0</version>
+    </parent>
+
+    <artifactId>chanaapi</artifactId>
+    <packaging>jar</packaging>
+    <name>ChaNa API Client</name>
+    <description>ChaNa客户端SDK</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.chanacode</groupId>
+            <artifactId>chanacommon</artifactId>
+            <version>${project.parent.version}</version>
+        </dependency>
+
+        <!-- Netty - 标记为optional，不强制用户项目使用 -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- fastjson2 - 允许用户使用其他JSON库 -->
+        <dependency>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Guava - 可选依赖 -->
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- SLF4J - 依赖用户项目的绑定 -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>

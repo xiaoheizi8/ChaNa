@@ -1,0 +1,436 @@
+package com.chanacode.api.client;
+
+import com.chanacode.common.constant.RegistryConstants;
+import com.chanacode.common.dto.RegistryRequest;
+import com.chanacode.common.dto.RegistryResponse;
+import com.chanacode.common.dto.ServiceInstance;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.*;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.ByteToMessageDecoder;
+import io.netty.handler.codec.MessageToByteEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
+
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONReader;
+import com.alibaba.fastjson2.JSONWriter;
+
+/**
+ * ChaNa客户端SDK
+ *
+ * <p>用于微服务向注册中心进行服务注册与发现。
+ *
+ * <p>核心功能：
+ * <ul>
+ *   <li>服务注册 - register()</li>
+ *   <li>服务注销 - deregister()</li>
+ *   <li>服务发现 - discover()</li>
+ *   <li>心跳保活 - startHeartbeat()</li>
+ * </ul>
+ *
+ * <p>使用示例：
+ * <pre>
+ * ChaNaClient client = new ChaNaClient("localhost", 9999);
+ * client.connect();
+ * client.register(instance);
+ * client.startHeartbeat(5000);
+ * List&lt;ServiceInstance&gt; instances = client.discover("order-service");
+ * </pre>
+ *
+ * @author 一朝风月
+ * @version 1.0.0
+ * @since 2026-03-27
+ */
+public class ChaNaClient implements AutoCloseable {
+
+    private static final Logger logger = LoggerFactory.getLogger(ChaNaClient.class);
+
+    private final String host;
+    private final int port;
+    private final EventLoopGroup group;
+    private volatile Channel channel;
+    private final ConcurrentHashMap<Long, CompletableFuture<RegistryResponse>> pendingRequests;
+    private final AtomicLong requestIdGenerator;
+    private final ScheduledExecutorService heartbeatScheduler;
+    private final CopyOnWriteArrayList<ServiceInstance> registeredInstances;
+    private volatile boolean connected;
+
+    public ChaNaClient(String host, int port) {
+        this.host = host;
+        this.port = port;
+        this.group = new NioEventLoopGroup(4);
+        this.pendingRequests = new ConcurrentHashMap<>();
+        this.requestIdGenerator = new AtomicLong(0);
+        this.heartbeatScheduler = Executors.newScheduledThreadPool(2);
+        this.registeredInstances = new CopyOnWriteArrayList<>();
+        this.connected = false;
+    }
+
+    /**
+     * @methodName: connect
+     * @description: 连接注册中心
+     * @param: []
+     * @return: void
+     */
+    public synchronized void connect() {
+        if (connected && channel != null && channel.isActive()) {
+            return;
+        }
+        try {
+            Bootstrap bootstrap = new Bootstrap();
+            bootstrap.group(group)
+                    .channel(NioSocketChannel.class)
+                    .option(ChannelOption.TCP_NODELAY, true)
+                    .option(ChannelOption.SO_KEEPALIVE, true)
+                    .handler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(SocketChannel ch) {
+                            ChannelPipeline pipeline = ch.pipeline();
+                            // 不使用 IdleStateHandler，避免 WRITER_IDLE 等事件在未正确处理时干扰长连接上的请求/响应
+                            pipeline.addLast("decoder", new InboundResponseDecoder());
+                            pipeline.addLast("encoder", new OutboundRequestEncoder());
+                            pipeline.addLast("handler", createClientHandler());
+                        }
+                    });
+
+            this.channel = bootstrap.connect(host, port).sync().channel();
+            this.connected = true;
+            logger.info("Connected to ChaNa registry at {}:{}", host, port);
+        } catch (Exception e) {
+            logger.error("Failed to connect to ChaNa registry", e);
+            throw new RuntimeException("Failed to connect to registry", e);
+        }
+    }
+
+    private ChannelInboundHandlerAdapter createClientHandler() {
+        return new ChannelInboundHandlerAdapter() {
+            @Override
+            public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+                if (msg instanceof RegistryResponse response) {
+                    CompletableFuture<RegistryResponse> future = pendingRequests.remove(response.getRequestId());
+                    if (future != null) {
+                        future.complete(response);
+                    } else {
+                        logger.debug("Orphan RegistryResponse (no pending request), requestId={}", response.getRequestId());
+                    }
+                }
+            }
+
+            @Override
+            public void channelActive(ChannelHandlerContext ctx) throws Exception {
+                connected = true;
+                logger.info("Channel active");
+            }
+
+            @Override
+            public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+                connected = false;
+                IOException ex = new IOException("ChaNa registry connection closed");
+                java.util.Collection<CompletableFuture<RegistryResponse>> snapshot =
+                        new java.util.ArrayList<>(pendingRequests.values());
+                pendingRequests.clear();
+                for (CompletableFuture<RegistryResponse> f : snapshot) {
+                    f.completeExceptionally(ex);
+                }
+                logger.warn("Channel inactive, pending RPCs failed: {}", ex.getMessage());
+            }
+
+            @Override
+            public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+                logger.error("Channel exception", cause);
+                ctx.close();
+            }
+        };
+    }
+
+    /**
+     * @methodName: register
+     * @description: 注册服务实例
+     * @param: [instance]
+     * @return: boolean
+     */
+    public boolean register(ServiceInstance instance) {
+        if (!connected) {
+            connect();
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.register(instance);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            if (response.isSuccess()) {
+                registeredInstances.add(instance);
+                logger.info("Service registered: {} - {}", instance.getServiceName(), instance.getInstanceId());
+                return true;
+            }
+        } catch (Exception e) {
+            logger.error("Failed to register service: {}", instance.getServiceName(), e);
+        }
+        return false;
+    }
+
+    /**
+     * @methodName: deregister
+     * @description: 注销服务实例
+     * @param: [instance]
+     * @return: boolean
+     */
+    public boolean deregister(ServiceInstance instance) {
+        if (!connected) {
+            return false;
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.deregister(instance, instance.getServiceName(), instance.getNamespace());
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            if (response.isSuccess()) {
+                registeredInstances.remove(instance);
+                logger.info("Service deregistered: {}", instance.getServiceName());
+                return true;
+            }
+        } catch (Exception e) {
+            logger.error("Failed to deregister service: {}", instance.getServiceName(), e);
+        }
+        return false;
+    }
+
+    /**
+     * @methodName: discover
+     * @description: 发现服务实例
+     * @param: [serviceName, namespace]
+     * @return: java.util.List<com.chanacode.common.dto.ServiceInstance>
+     */
+    public List<ServiceInstance> discover(String serviceName, String namespace) {
+        if (!connected) {
+            connect();
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.discover(serviceName, namespace);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            if (response.isSuccess()) {
+                return response.getInstances();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to discover service: {}", serviceName, e);
+        }
+        return List.of();
+    }
+
+    /**
+     * @methodName: discover
+     * @description: 发现服务实例(使用默认命名空间)
+     * @param: [serviceName]
+     * @return: java.util.List<com.chanacode.common.dto.ServiceInstance>
+     */
+    public List<ServiceInstance> discover(String serviceName) {
+        return discover(serviceName, RegistryConstants.DEFAULT_NAMESPACE);
+    }
+
+    private RegistryResponse sendRequest(RegistryRequest request) throws Exception {
+        CompletableFuture<RegistryResponse> future = new CompletableFuture<>();
+        pendingRequests.put(request.getRequestId(), future);
+        channel.writeAndFlush(request);
+        return future.get(30, TimeUnit.SECONDS);
+    }
+
+    /**
+     * @methodName: startHeartbeat
+     * @description: 启动心跳
+     * @param: [intervalMs]
+     * @return: void
+     */
+    public void startHeartbeat(long intervalMs) {
+        heartbeatScheduler.scheduleAtFixedRate(() -> {
+            for (ServiceInstance instance : registeredInstances) {
+                long requestId = requestIdGenerator.incrementAndGet();
+                RegistryRequest request = RegistryRequest.heartbeat(
+                    instance.getInstanceId(),
+                    instance.getServiceName(),
+                    instance.getNamespace()
+                );
+                request.setRequestId(requestId);
+                channel.writeAndFlush(request);
+            }
+        }, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * @methodName: batchRegister
+     * @description: 批量注册服务实例
+     * @param: [instances]
+     * @return: int - 成功注册数量
+     */
+    public int batchRegister(List<ServiceInstance> instances) {
+        if (!connected) {
+            connect();
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.batchRegister(instances);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            if (response.isSuccess() && response.getExt() != null) {
+                Object count = response.getExt().get("successCount");
+                int successCount = count != null ? ((Number) count).intValue() : 0;
+                registeredInstances.addAll(instances);
+                return successCount;
+            }
+        } catch (Exception e) {
+            logger.error("Failed to batch register services", e);
+        }
+        return 0;
+    }
+
+    /**
+     * @methodName: batchDiscover
+     * @description: 批量发现服务
+     * @param: [serviceNames, namespace]
+     * @return: Map<String, List < ServiceInstance>>
+     */
+    public Map<String, List<ServiceInstance>> batchDiscover(List<String> serviceNames, String namespace) {
+        if (!connected) {
+            connect();
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.batchDiscover(serviceNames, namespace);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            if (response.isSuccess() && response.getBatchInstances() != null) {
+                return response.getBatchInstances();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to batch discover services", e);
+        }
+        return Map.of();
+    }
+
+    /**
+     * @methodName: updateMetadata
+     * @description: 更新实例元数据
+     * @param: [instanceId, metadata]
+     * @return: boolean
+     */
+    public boolean updateMetadata(String instanceId, Map<String, String> metadata) {
+        if (!connected) {
+            return false;
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.metadataUpdate(instanceId, metadata);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            return response.isSuccess();
+        } catch (Exception e) {
+            logger.error("Failed to update metadata for instance: {}", instanceId, e);
+        }
+        return false;
+    }
+
+    /**
+     * @methodName: renewLease
+     * @description: 续约租约
+     * @param: [instanceId, ttlSeconds]
+     * @return: boolean
+     */
+    public boolean renewLease(String instanceId, int ttlSeconds) {
+        if (!connected) {
+            return false;
+        }
+
+        long requestId = requestIdGenerator.incrementAndGet();
+        RegistryRequest request = RegistryRequest.leaseRenew(instanceId, ttlSeconds);
+        request.setRequestId(requestId);
+
+        try {
+            RegistryResponse response = sendRequest(request);
+            return response.isSuccess();
+        } catch (Exception e) {
+            logger.error("Failed to renew lease for instance: {}", instanceId, e);
+        }
+        return false;
+    }
+
+    /**
+     * @methodName: isConnected
+     * @description: 是否已连接
+     * @param: []
+     * @return: boolean
+     */
+    public boolean isConnected() {
+        return connected && channel != null && channel.isActive();
+    }
+
+    @Override
+    public void close() {
+        for (ServiceInstance instance : registeredInstances) {
+            deregister(instance);
+        }
+        heartbeatScheduler.shutdown();
+        group.shutdownGracefully();
+        connected = false;
+        logger.info("ChaNa client closed");
+    }
+
+    /** 解析服务端返回的 {@link RegistryResponse}（length 前缀 + JSON，与注册中心 Netty 协议一致） */
+    private static class InboundResponseDecoder extends ByteToMessageDecoder {
+        @Override
+        protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
+            if (in.readableBytes() < 4) {
+                return;
+            }
+            in.markReaderIndex();
+            int length = in.readInt();
+            if (in.readableBytes() < length - 4) {
+                in.resetReaderIndex();
+                return;
+            }
+            byte[] data = new byte[length - 4];
+            in.readBytes(data);
+            try {
+                RegistryResponse response = JSON.parseObject(data, RegistryResponse.class, JSONReader.Feature.SupportAutoType);
+                if (response != null) {
+                    out.add(response);
+                }
+            } catch (Exception e) {
+                logger.error("InboundResponseDecoder: invalid JSON frame ({} bytes): {}", data.length, e.getMessage());
+                throw e;
+            }
+        }
+    }
+
+    /** 将 {@link RegistryRequest} 编码为与服务端一致的 length-prefix JSON */
+    private static class OutboundRequestEncoder extends MessageToByteEncoder<RegistryRequest> {
+        @Override
+        protected void encode(ChannelHandlerContext ctx, RegistryRequest msg, ByteBuf out) {
+            byte[] data = JSON.toJSONBytes(msg, JSONWriter.Feature.WriteNulls, JSONWriter.Feature.FieldBased);
+            out.writeInt(4 + data.length);
+            out.writeBytes(data);
+        }
+    }
+}

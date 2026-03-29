@@ -1,0 +1,31 @@
+# ChaNa Registry Server Configuration
+# ====================================
+
+server:
+  port: 8888
+
+spring:
+  application:
+    name: chana-registry
+
+# ChaNa Registry Configuration
+chana:
+  netty:
+    port: 9999
+    boss-threads: 1
+    worker-threads: 8
+  http:
+    port: 9998
+  health-check:
+    interval-seconds: 5
+    heartbeat-timeout-seconds: 30
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
