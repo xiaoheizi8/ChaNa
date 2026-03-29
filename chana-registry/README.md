@@ -104,22 +104,22 @@ chana:
 ```xml
 <dependency>
     <groupId>com.chanacode</groupId>
-    <artifactId>chana-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <artifactId>chana-discovery-spring-boot3-starter</artifactId>
+    <version>3.0.0</version>
 </dependency>
 ```
 
 配置 `application.yml`:
 ```yaml
 chana:
-  client:
+  discovery:
     server-host: localhost
     server-port: 9999
 ```
 
-启动类添加 `@EnableChaNaClient`:
+启动类添加 `@EnableChaNaDiscovery`:
 ```java
-@EnableChaNaClient
+@EnableChaNaDiscovery
 @SpringBootApplication
 public class OrderApplication {
     public static void main(String[] args) {
@@ -315,7 +315,8 @@ java -server \
 - **LMAX Disruptor**: 高性能队列
 
 ### 客户端SDK
-- **chana-spring-boot-starter**: Spring Boot自动配置
+- **chana-discovery-spring-boot3-starter**: 服务注册与发现
+- **chana-config-spring-boot3-starter**: 分布式配置 (开发中)
 - **@EnableChaNaClient**: 一行注解启用服务注册发现
 
 ---

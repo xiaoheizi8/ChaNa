@@ -64,8 +64,8 @@ chana:
 ```xml
 <dependency>
     <groupId>com.chanacode</groupId>
-    <artifactId>chana-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
+    <artifactId>chana-discovery-spring-boot3-starter</artifactId>
+    <version>3.0.0</version>
 </dependency>
 ```
 
@@ -73,7 +73,7 @@ chana:
 
 ```yaml
 chana:
-  client:
+  discovery:
     server-host: localhost
     server-port: 9999
     namespace: default
@@ -84,7 +84,7 @@ chana:
 ### 2.3 启用客户端
 
 ```java
-@EnableChaNaClient
+@EnableChaNaDiscovery
 @SpringBootApplication
 public class OrderApplication {
     public static void main(String[] args) {

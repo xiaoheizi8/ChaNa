@@ -79,7 +79,7 @@ java -jar chanaserver/target/chanaserver-3.0.0.jar
 ```xml
 <dependency>
     <groupId>com.chanacode</groupId>
-    <artifactId>chana-spring-boot-starter</artifactId>
+    <artifactId>chana-discovery-spring-boot3-starter</artifactId>
     <version>3.0.0</version>
 </dependency>
 ```
@@ -88,7 +88,7 @@ java -jar chanaserver/target/chanaserver-3.0.0.jar
 
 ```yaml
 chana:
-  client:
+  discovery:
     server-host: localhost
     server-port: 9999
     namespace: default
@@ -97,7 +97,7 @@ chana:
 **Step 3: 启用客户端**
 
 ```java
-@EnableChaNaClient
+@EnableChaNaDiscovery
 @SpringBootApplication
 public class OrderApplication {
     public static void main(String[] args) {
@@ -174,7 +174,7 @@ docker run -d -p 9999:9999 -p 9998:9998 chana-registry:3.0.0
 ```xml
 <dependency>
     <groupId>com.chanacode</groupId>
-    <artifactId>chana-spring-boot-starter</artifactId>
+    <artifactId>chana-discovery-spring-boot3-starter</artifactId>
     <version>3.0.0</version>
 </dependency>
 ```
@@ -190,7 +190,7 @@ spring:
     name: order-service
 
 chana:
-  client:
+  discovery:
     enabled: true                    # 是否启用客户端
     server-host: localhost           # 注册中心地址
     server-port: 9999                # 注册中心端口
@@ -205,7 +205,7 @@ chana:
 #### 4.1.3 启用客户端
 
 ```java
-@EnableChaNaClient
+@EnableChaNaDiscovery
 @SpringBootApplication
 public class OrderApplication {
     public static void main(String[] args) {
@@ -410,7 +410,7 @@ public ChaNaServiceAnnotationBeanPostProcessor postProcessor() {
 
 ```yaml
 chana:
-  client:
+  discovery:
     server-host: ${CHANA_SERVER_HOST:localhost}
     server-port: ${CHANA_SERVER_PORT:9999}
 ```
