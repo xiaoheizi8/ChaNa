@@ -16,7 +16,6 @@
         <module>chanacore</module>
         <module>chanaserver</module>
         <module>chanaapi</module>
-        <module>chana-discovery-spring-boot3-starter</module>
     </modules>
 
     <properties>

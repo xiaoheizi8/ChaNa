@@ -7,13 +7,15 @@ import {
   DashboardOutlined, ThunderboltOutlined, CloudServerOutlined, 
   GlobalOutlined as GlobeOutlined, HeartOutlined, SettingOutlined, AppstoreOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, SunOutlined,
-  BellOutlined, QuestionCircleOutlined, InfoCircleOutlined
+  BellOutlined, QuestionCircleOutlined, InfoCircleOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
 import Dashboard from './pages/Dashboard';
 import ServiceDetail from './pages/ServiceDetail';
 import HealthMonitor from './pages/HealthMonitor';
 import InstanceManage from './pages/InstanceManage';
 import Settings from './pages/Settings';
+import ConfigManage from './pages/ConfigManage';
 import { useI18n, I18nProvider, Language } from './i18n';
 
 const { Header, Sider, Content } = Layout;
@@ -158,6 +160,7 @@ const AppContent: React.FC = () => {
     { key: '/', icon: <DashboardOutlined />, label: <Link to="/">{t.dashboard}</Link> },
     { key: '/services', icon: <CloudServerOutlined />, label: <Link to="/services">{t.services}</Link> },
     { key: '/instances', icon: <AppstoreOutlined />, label: <Link to="/instances">{t.instances}</Link> },
+    { key: '/configs', icon: <FileTextOutlined />, label: <Link to="/configs">{t.configs}</Link> },
     { key: '/health', icon: <HeartOutlined />, label: <Link to="/health">{t.health}</Link> },
     { key: '/namespaces', icon: <GlobeOutlined />, label: <Link to="/namespaces">{t.namespaces}</Link> },
     { key: '/metrics', icon: <ThunderboltOutlined />, label: <Link to="/metrics">{t.metrics}</Link> },
@@ -212,6 +215,7 @@ const AppContent: React.FC = () => {
                 <Route path="/services" element={<ServiceListPage />} />
                 <Route path="/services/:serviceName" element={<ServiceDetail />} />
                 <Route path="/instances" element={<InstanceManage />} />
+                <Route path="/configs" element={<ConfigManage />} />
                 <Route path="/health" element={<HealthMonitor />} />
                 <Route path="/namespaces" element={<NamespacePage />} />
                 <Route path="/metrics" element={<CoreMetricsPage />} />

@@ -76,6 +76,25 @@ interface Translations {
   reset: string;
   more: string;
   viewAll: string;
+  configs: string;
+  configManagement: string;
+  configDataId: string;
+  configGroup: string;
+  configContent: string;
+  addConfig: string;
+    editConfig: string;
+    edit: string;
+    confirmDelete: string;
+  actions: string;
+  configPublishSuccess: string;
+  configPublishFailed: string;
+  configDeleteSuccess: string;
+  configDeleteFailed: string;
+  delete: string;
+  pleaseInput: string;
+  configDataIdPlaceholder: string;
+  configGroupPlaceholder: string;
+  configContentPlaceholder: string;
 }
 
 const translations: Record<Language, Translations> = {
@@ -153,6 +172,25 @@ const translations: Record<Language, Translations> = {
     reset: '重置',
     more: '更多',
     viewAll: '查看全部',
+    configs: '配置管理',
+    configManagement: '配置中心',
+    configDataId: '配置ID',
+    configGroup: '分组',
+    configContent: '配置内容',
+    addConfig: '添加配置',
+    editConfig: '编辑配置',
+    edit: '编辑',
+    delete: '删除',
+    actions: '操作',
+    confirmDelete: '确定删除该配置?',
+    configPublishSuccess: '配置发布成功',
+    configPublishFailed: '配置发布失败',
+    configDeleteSuccess: '配置删除成功',
+    configDeleteFailed: '配置删除失败',
+    pleaseInput: '请输入',
+    configDataIdPlaceholder: '请输入配置ID',
+    configGroupPlaceholder: '请输入分组',
+    configContentPlaceholder: '请输入配置内容',
   },
   en: {
     title: 'ChaNa Registry Console',
@@ -228,6 +266,25 @@ const translations: Record<Language, Translations> = {
     reset: 'Reset',
     more: 'More',
     viewAll: 'View All',
+    configs: 'Configs',
+    configManagement: 'Config Center',
+    configDataId: 'Data ID',
+    configGroup: 'Group',
+    configContent: 'Content',
+    addConfig: 'Add Config',
+    editConfig: 'Edit Config',
+    edit: 'Edit',
+    delete: 'Delete',
+    actions: 'Actions',
+    confirmDelete: 'Are you sure to delete this config?',
+    configPublishSuccess: 'Config published successfully',
+    configPublishFailed: 'Config publish failed',
+    configDeleteSuccess: 'Config deleted successfully',
+    configDeleteFailed: 'Config delete failed',
+    pleaseInput: 'Please input',
+    configDataIdPlaceholder: 'Enter config data ID',
+    configGroupPlaceholder: 'Enter config group',
+    configContentPlaceholder: 'Enter config content',
   }
 };
 

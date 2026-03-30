@@ -1,6 +1,5 @@
 package com.chanacode.api.client;
 
-import com.chanacode.common.constant.MessageType;
 import com.chanacode.common.constant.RegistryConstants;
 import com.chanacode.common.dto.RegistryRequest;
 import com.chanacode.common.dto.RegistryResponse;
@@ -13,10 +12,10 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.MessageToByteEncoder;
-import io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -83,7 +82,10 @@ public class ChaNaClient implements AutoCloseable {
      * @param: []
      * @return: void
      */
-    public void connect() {
+    public synchronized void connect() {
+        if (connected && channel != null && channel.isActive()) {
+            return;
+        }
         try {
             Bootstrap bootstrap = new Bootstrap();
             bootstrap.group(group)
@@ -94,9 +96,9 @@ public class ChaNaClient implements AutoCloseable {
                         @Override
                         protected void initChannel(SocketChannel ch) {
                             ChannelPipeline pipeline = ch.pipeline();
-                            pipeline.addLast("idle", new IdleStateHandler(0, 10, 0));
-                            pipeline.addLast("decoder", new RequestDecoder());
-                            pipeline.addLast("encoder", new ResponseEncoder());
+                            // 不使用 IdleStateHandler，避免 WRITER_IDLE 等事件在未正确处理时干扰长连接上的请求/响应
+                            pipeline.addLast("decoder", new InboundResponseDecoder());
+                            pipeline.addLast("encoder", new OutboundRequestEncoder());
                             pipeline.addLast("handler", createClientHandler());
                         }
                     });
@@ -118,6 +120,8 @@ public class ChaNaClient implements AutoCloseable {
                     CompletableFuture<RegistryResponse> future = pendingRequests.remove(response.getRequestId());
                     if (future != null) {
                         future.complete(response);
+                    } else {
+                        logger.debug("Orphan RegistryResponse (no pending request), requestId={}", response.getRequestId());
                     }
                 }
             }
@@ -131,7 +135,14 @@ public class ChaNaClient implements AutoCloseable {
             @Override
             public void channelInactive(ChannelHandlerContext ctx) throws Exception {
                 connected = false;
-                logger.warn("Channel inactive");
+                IOException ex = new IOException("ChaNa registry connection closed");
+                java.util.Collection<CompletableFuture<RegistryResponse>> snapshot =
+                        new java.util.ArrayList<>(pendingRequests.values());
+                pendingRequests.clear();
+                for (CompletableFuture<RegistryResponse> f : snapshot) {
+                    f.completeExceptionally(ex);
+                }
+                logger.warn("Channel inactive, pending RPCs failed: {}", ex.getMessage());
             }
 
             @Override
@@ -386,10 +397,13 @@ public class ChaNaClient implements AutoCloseable {
         logger.info("ChaNa client closed");
     }
 
-    private static class RequestDecoder extends ByteToMessageDecoder {
+    /** 解析服务端返回的 {@link RegistryResponse}（length 前缀 + JSON，与注册中心 Netty 协议一致） */
+    private static class InboundResponseDecoder extends ByteToMessageDecoder {
         @Override
         protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
-            if (in.readableBytes() < 4) return;
+            if (in.readableBytes() < 4) {
+                return;
+            }
             in.markReaderIndex();
             int length = in.readInt();
             if (in.readableBytes() < length - 4) {
@@ -398,14 +412,22 @@ public class ChaNaClient implements AutoCloseable {
             }
             byte[] data = new byte[length - 4];
             in.readBytes(data);
-            RegistryRequest request = JSON.parseObject(data, RegistryRequest.class, JSONReader.Feature.SupportAutoType);
-            out.add(request);
+            try {
+                RegistryResponse response = JSON.parseObject(data, RegistryResponse.class, JSONReader.Feature.SupportAutoType);
+                if (response != null) {
+                    out.add(response);
+                }
+            } catch (Exception e) {
+                logger.error("InboundResponseDecoder: invalid JSON frame ({} bytes): {}", data.length, e.getMessage());
+                throw e;
+            }
         }
     }
 
-    private static class ResponseEncoder extends MessageToByteEncoder<RegistryResponse> {
+    /** 将 {@link RegistryRequest} 编码为与服务端一致的 length-prefix JSON */
+    private static class OutboundRequestEncoder extends MessageToByteEncoder<RegistryRequest> {
         @Override
-        protected void encode(ChannelHandlerContext ctx, RegistryResponse msg, ByteBuf out) {
+        protected void encode(ChannelHandlerContext ctx, RegistryRequest msg, ByteBuf out) {
             byte[] data = JSON.toJSONBytes(msg, JSONWriter.Feature.WriteNulls, JSONWriter.Feature.FieldBased);
             out.writeInt(4 + data.length);
             out.writeBytes(data);

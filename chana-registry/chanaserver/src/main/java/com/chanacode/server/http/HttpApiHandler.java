@@ -3,6 +3,7 @@ package com.chanacode.server.http;
 import com.chanacode.common.constant.RegistryConstants;
 import com.chanacode.common.dto.ServiceInstance;
 import com.chanacode.core.cache.RegistryCacheManager;
+import com.chanacode.core.config.ConfigManager;
 import com.chanacode.core.health.SlidingWindowHealthChecker;
 import com.chanacode.core.metrics.HighPrecisionMetricsCollector;
 import com.chanacode.core.namespace.NamespaceManager;
@@ -49,6 +50,7 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
     private final NamespaceManager namespaceManager;
     private final IncrementalSyncManager syncManager;
     private final HighPrecisionMetricsCollector metrics;
+    private final ConfigManager configManager;
 
     public HttpApiHandler(ServiceRegistry registry, RegistryCacheManager cacheManager,
                           SlidingWindowHealthChecker healthChecker, NamespaceManager namespaceManager,
@@ -59,6 +61,7 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         this.namespaceManager = namespaceManager;
         this.syncManager = syncManager;
         this.metrics = metrics;
+        this.configManager = ConfigManager.getInstance();
     }
 
     @Override
@@ -76,13 +79,15 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
             if (method == HttpMethod.POST) {
                 switch (path) {
                     case "/api/metrics" -> handleMetrics(ctx);
-                    case "/api/services" -> handleServices(ctx);
+                    case "/api/services" -> handleRegister(ctx, request.content().toString(StandardCharsets.UTF_8));
                     case "/api/namespaces" -> handleNamespaces(ctx);
                     case "/api/health" -> handleHealth(ctx);
                     case "/api/stats" -> handleStats(ctx);
+                    case "/api/register" -> handleRegister(ctx, request.content().toString(StandardCharsets.UTF_8));
                     case "/api/services/register" -> handleRegister(ctx, request.content().toString(StandardCharsets.UTF_8));
                     case "/api/services/deregister" -> handleDeregister(ctx, request.content().toString(StandardCharsets.UTF_8));
                     case "/api/heartbeat" -> handleHeartbeat(ctx, request.content().toString(StandardCharsets.UTF_8));
+                    case "/api/config/publish" -> handlePublishConfig(ctx, request.content().toString(StandardCharsets.UTF_8));
                     default -> {
                         if (path.startsWith("/api/services/")) {
                             String serviceName = path.substring("/api/services/".length());
@@ -92,22 +97,45 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
                         }
                     }
                 }
-            } else {
+            } else if (method == HttpMethod.GET) {
                 switch (path) {
                     case "/api/metrics" -> handleMetrics(ctx);
                     case "/api/services" -> handleServices(ctx);
                     case "/api/namespaces" -> handleNamespaces(ctx);
                     case "/api/health" -> handleHealth(ctx);
                     case "/api/stats" -> handleStats(ctx);
+                    case "/api/configs" -> handleConfigs(ctx);
                     default -> {
                         if (path.startsWith("/api/services/")) {
                             String serviceName = path.substring("/api/services/".length());
                             handleServiceDetail(ctx, serviceName);
+                        } else if (path.startsWith("/api/discover")) {
+                            handleDiscover(ctx, uri);
+                        } else if (path.startsWith("/api/config")) {
+                            handleGetConfig(ctx, uri);
                         } else {
                             sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Not found"));
                         }
                     }
                 }
+            } else if (method == HttpMethod.DELETE) {
+                if (path.startsWith("/api/deregister")) {
+                    String query = uri.contains("?") ? uri.split("\\?")[1] : "";
+                    handleDeregisterQuery(ctx, query);
+                } else if (path.startsWith("/api/config")) {
+                    handleDeleteConfig(ctx, uri);
+                } else {
+                    sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Not found"));
+                }
+            } else if (method == HttpMethod.PUT) {
+                if (path.startsWith("/api/heartbeat")) {
+                    String query = uri.contains("?") ? uri.split("\\?")[1] : "";
+                    handleHeartbeatQuery(ctx, query);
+                } else {
+                    sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Not found"));
+                }
+            } else {
+                sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Not found"));
             }
         } catch (Exception e) {
             logger.error("API error: {} {}", method, path, e);
@@ -140,6 +168,82 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         }
     }
 
+    private void handleDiscover(ChannelHandlerContext ctx, String path) {
+        try {
+            String query = path.contains("?") ? path.split("\\?")[1] : "";
+            String serviceName = "";
+            String namespace = RegistryConstants.DEFAULT_NAMESPACE;
+            
+            for (String param : query.split("&")) {
+                String[] kv = param.split("=");
+                if (kv.length == 2) {
+                    if ("serviceName".equals(kv[0])) {
+                        serviceName = kv[1];
+                    } else if ("namespace".equals(kv[0])) {
+                        namespace = kv[1];
+                    }
+                }
+            }
+            
+            if (serviceName.isEmpty()) {
+                sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", "serviceName is required"));
+                return;
+            }
+            
+            List<ServiceInstance> instances = registry.discover(serviceName, namespace);
+            sendJson(ctx, HttpResponseStatus.OK, instances);
+        } catch (Exception e) {
+            logger.error("Discover error", e);
+            sendJson(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void handleDeregisterQuery(ChannelHandlerContext ctx, String query) {
+        try {
+            String instanceId = "";
+            for (String param : query.split("&")) {
+                String[] kv = param.split("=");
+                if (kv.length == 2 && "instanceId".equals(kv[0])) {
+                    instanceId = kv[1];
+                }
+            }
+            
+            if (instanceId.isEmpty()) {
+                sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", "instanceId is required"));
+                return;
+            }
+            
+            boolean success = registry.deregister(instanceId, "", RegistryConstants.DEFAULT_NAMESPACE);
+            sendJson(ctx, HttpResponseStatus.OK, Map.of("success", success));
+        } catch (Exception e) {
+            logger.error("Deregister error", e);
+            sendJson(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void handleHeartbeatQuery(ChannelHandlerContext ctx, String query) {
+        try {
+            String instanceId = "";
+            for (String param : query.split("&")) {
+                String[] kv = param.split("=");
+                if (kv.length == 2 && "instanceId".equals(kv[0])) {
+                    instanceId = kv[1];
+                }
+            }
+            
+            if (instanceId.isEmpty()) {
+                sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", "instanceId is required"));
+                return;
+            }
+            
+            boolean success = registry.heartbeat(instanceId);
+            sendJson(ctx, HttpResponseStatus.OK, Map.of("success", success));
+        } catch (Exception e) {
+            logger.error("Heartbeat error", e);
+            sendJson(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, Map.of("error", e.getMessage()));
+        }
+    }
+
     private void handleHeartbeat(ChannelHandlerContext ctx, String body) {
         try {
             Map<String, String> data = JSON.parseObject(body, Map.class);
@@ -149,6 +253,104 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
         } catch (Exception e) {
             logger.error("Heartbeat error", e);
             sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void handleGetConfig(ChannelHandlerContext ctx, String uri) {
+        try {
+            String query = uri.contains("?") ? uri.split("\\?")[1] : "";
+            String dataId = "";
+            String group = "DEFAULT_GROUP";
+            
+            for (String param : query.split("&")) {
+                String[] kv = param.split("=");
+                if (kv.length == 2) {
+                    if ("dataId".equals(kv[0])) {
+                        dataId = kv[1];
+                    } else if ("group".equals(kv[0])) {
+                        group = kv[1];
+                    }
+                }
+            }
+            
+            if (dataId.isEmpty()) {
+                sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", "dataId is required"));
+                return;
+            }
+            
+            String config = configManager.getConfig(dataId, group);
+            if (config != null) {
+                sendJson(ctx, HttpResponseStatus.OK, Map.of(
+                    "dataId", dataId,
+                    "group", group,
+                    "content", config
+                ));
+            } else {
+                sendJson(ctx, HttpResponseStatus.NOT_FOUND, Map.of("error", "Config not found"));
+            }
+        } catch (Exception e) {
+            logger.error("Get config error", e);
+            sendJson(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void handlePublishConfig(ChannelHandlerContext ctx, String body) {
+        try {
+            Map<String, String> data = JSON.parseObject(body, Map.class);
+            String dataId = data.get("dataId");
+            String group = data.getOrDefault("group", "DEFAULT_GROUP");
+            String content = data.get("content");
+            
+            if (dataId == null || content == null) {
+                sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", "dataId and content are required"));
+                return;
+            }
+            
+            boolean success = configManager.publishConfig(dataId, group, content);
+            sendJson(ctx, HttpResponseStatus.OK, Map.of("success", success));
+        } catch (Exception e) {
+            logger.error("Publish config error", e);
+            sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void handleDeleteConfig(ChannelHandlerContext ctx, String uri) {
+        try {
+            String query = uri.contains("?") ? uri.split("\\?")[1] : "";
+            String dataId = "";
+            String group = "DEFAULT_GROUP";
+            
+            for (String param : query.split("&")) {
+                String[] kv = param.split("=");
+                if (kv.length == 2) {
+                    if ("dataId".equals(kv[0])) {
+                        dataId = kv[1];
+                    } else if ("group".equals(kv[0])) {
+                        group = kv[1];
+                    }
+                }
+            }
+            
+            if (dataId.isEmpty()) {
+                sendJson(ctx, HttpResponseStatus.BAD_REQUEST, Map.of("error", "dataId is required"));
+                return;
+            }
+            
+            boolean success = configManager.removeConfig(dataId, group);
+            sendJson(ctx, HttpResponseStatus.OK, Map.of("success", success));
+        } catch (Exception e) {
+            logger.error("Delete config error", e);
+            sendJson(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, Map.of("error", e.getMessage()));
+        }
+    }
+
+    private void handleConfigs(ChannelHandlerContext ctx) {
+        try {
+            Map<String, Object> configs = configManager.getAllConfigs();
+            sendJson(ctx, HttpResponseStatus.OK, configs);
+        } catch (Exception e) {
+            logger.error("Get all configs error", e);
+            sendJson(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, Map.of("error", e.getMessage()));
         }
     }
 
@@ -193,24 +395,23 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
             }
         }
 
-        if (services.isEmpty()) {
-            services.add(Map.of(
-                "serviceName", "demo-service",
-                "namespace", "default",
-                "instanceCount", 3,
-                "healthyCount", 3,
-                "unhealthyCount", 0,
-                "version", "1.0.0",
-                "qps", 1000,
-                "avgLatencyUs", 150
-            ));
-        }
-
         sendJson(ctx, HttpResponseStatus.OK, services);
     }
 
     private void handleServiceDetail(ChannelHandlerContext ctx, String serviceName) {
-        List<ServiceInstance> instances = registry.discover(serviceName, RegistryConstants.DEFAULT_NAMESPACE);
+        String namespace = RegistryConstants.DEFAULT_NAMESPACE;
+        if (serviceName.contains("?")) {
+            String[] parts = serviceName.split("\\?");
+            serviceName = parts[0];
+            String query = parts.length > 1 ? parts[1] : "";
+            for (String param : query.split("&")) {
+                String[] kv = param.split("=");
+                if (kv.length == 2 && "namespace".equals(kv[0])) {
+                    namespace = kv[1];
+                }
+            }
+        }
+        List<ServiceInstance> instances = registry.discover(serviceName, namespace);
         List<Map<String, Object>> instanceList = new ArrayList<>();
 
         for (ServiceInstance instance : instances) {
@@ -244,15 +445,6 @@ public class HttpApiHandler extends SimpleChannelInboundHandler<FullHttpRequest>
                 "description", info.description(),
                 "serviceCount", info.serviceCount(),
                 "instanceCount", info.instanceCount()
-            ));
-        }
-
-        if (namespaces.isEmpty()) {
-            namespaces.add(Map.of(
-                "namespace", "default",
-                "description", "默认命名空间",
-                "serviceCount", 1,
-                "instanceCount", 3
             ));
         }
 

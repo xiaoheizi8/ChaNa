@@ -67,6 +67,18 @@ export interface ServerStats {
   globalVersion: number;
 }
 
+export interface ConfigInfo {
+  dataId: string;
+  group: string;
+  content: string;
+}
+
+export interface ConfigFormData {
+  dataId: string;
+  group: string;
+  content: string;
+}
+
 class ChanaApiService {
   async getMetrics(): Promise<ServiceMetrics> {
     return axiosClient.get<ServiceMetrics>('/api/metrics');
@@ -110,6 +122,22 @@ class ChanaApiService {
       serviceName,
       namespace,
     });
+  }
+
+  async getConfig(dataId: string, group = 'DEFAULT_GROUP'): Promise<ConfigInfo> {
+    return axiosClient.get<ConfigInfo>(`/api/config?dataId=${dataId}&group=${group}`);
+  }
+
+  async getAllConfigs(): Promise<Record<string, string>> {
+    return axiosClient.get<Record<string, string>>('/api/configs');
+  }
+
+  async publishConfig(data: ConfigFormData): Promise<{ success: boolean }> {
+    return axiosClient.post('/api/config/publish', data);
+  }
+
+  async deleteConfig(dataId: string, group = 'DEFAULT_GROUP'): Promise<{ success: boolean }> {
+    return axiosClient.delete(`/api/config?dataId=${dataId}&group=${group}`);
   }
 }
 

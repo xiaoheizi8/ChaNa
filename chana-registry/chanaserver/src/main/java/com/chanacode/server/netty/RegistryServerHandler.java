@@ -11,6 +11,8 @@ import com.chanacode.core.namespace.NamespaceManager;
 import com.chanacode.core.registry.ServiceRegistry;
 import com.chanacode.core.sync.IncrementalSyncManager;
 import io.netty.channel.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +46,8 @@ import java.util.Map;
  */
 @ChannelHandler.Sharable
 public class RegistryServerHandler extends SimpleChannelInboundHandler<RegistryRequest> {
+
+    private static final Logger logger = LoggerFactory.getLogger(RegistryServerHandler.class);
 
     private final ServiceRegistry registry;
     private final RegistryCacheManager cacheManager;
@@ -97,11 +101,14 @@ public class RegistryServerHandler extends SimpleChannelInboundHandler<RegistryR
         boolean success = registry.register(instance);
 
         if (success) {
-            namespaceManager.registerService(namespace, instance);
-            cacheManager.invalidate(namespace, request.getServiceName());
-            metrics.incrementRegister();
-
-            syncManager.notifyChange(namespace, request.getServiceName(), List.of(instance), List.of(), List.of());
+            try {
+                namespaceManager.registerService(namespace, instance);
+                cacheManager.invalidate(namespace, request.getServiceName());
+                metrics.incrementRegister();
+                syncManager.notifyChange(namespace, request.getServiceName(), List.of(instance), List.of(), List.of());
+            } catch (Exception e) {
+                logger.error("REGISTER: post-process failed for {} (instance still in core registry)", request.getServiceName(), e);
+            }
         }
 
         RegistryResponse response = RegistryResponse.success(request.getRequestId());

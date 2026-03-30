@@ -245,9 +245,11 @@ public class ChaNaServer {
             try {
                 HighPrecisionMetricsCollector.MetricsSnapshot snapshot = metrics.getSnapshot();
                 logger.info("ChaNa Metrics - QPS: {}, Register: {}, Discover: {}, Connections: {}, " +
-                           "AvgLatency: {:.2f}us, P99: {:.2f}us",
+                           "AvgLatency: {}us, P99: {}us",
                     snapshot.qps(), snapshot.registerQps(), snapshot.discoverQps(),
-                    snapshot.connections(), snapshot.avgLatencyUs(), snapshot.p99LatencyUs());
+                    snapshot.connections(),
+                    String.format("%.2f", snapshot.avgLatencyUs()),
+                    String.format("%.2f", snapshot.p99LatencyUs()));
             } catch (Exception e) {
                 logger.error("Metrics report error", e);
             }

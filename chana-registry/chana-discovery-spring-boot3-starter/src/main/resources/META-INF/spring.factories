@@ -1,2 +1,0 @@
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-com.chanacode.spring.boot.starter.ChaNaClientAutoConfiguration

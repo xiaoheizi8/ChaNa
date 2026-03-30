@@ -9,6 +9,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.MessageToByteEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -44,6 +46,8 @@ public class ProtocolCodec {
      */
     public static class RegistryRequestDecoder extends ByteToMessageDecoder {
 
+        private static final Logger log = LoggerFactory.getLogger(RegistryRequestDecoder.class);
+
         @Override
         protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
             if (in.readableBytes() < 4) {
@@ -53,7 +57,7 @@ public class ProtocolCodec {
             in.markReaderIndex();
             int length = in.readInt();
 
-            if (in.readableBytes() < length - 4) {
+            if (length < 4 || in.readableBytes() < length - 4) {
                 in.resetReaderIndex();
                 return;
             }
@@ -61,9 +65,16 @@ public class ProtocolCodec {
             byte[] data = new byte[length - 4];
             in.readBytes(data);
 
-            RegistryRequest request = JSON.parseObject(data, RegistryRequest.class,
-                JSONReader.Feature.SupportAutoType);
-            out.add(request);
+            try {
+                RegistryRequest request = JSON.parseObject(data, RegistryRequest.class,
+                    JSONReader.Feature.SupportAutoType);
+                if (request != null) {
+                    out.add(request);
+                }
+            } catch (Exception e) {
+                log.error("RegistryRequest decode failed ({} bytes): {}", data.length, e.toString());
+                ctx.close();
+            }
         }
     }
 

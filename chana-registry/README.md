@@ -140,19 +140,36 @@ public class OrderServiceImpl implements OrderService {
 
 ## REST API 接口 | REST API Endpoints
 
-基础路径: `/api`
+基础路径: `http://localhost:9998/api`
+
+### 服务管理
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/api/services` | 获取服务列表 |
+| GET | `/api/services/{name}?namespace=xxx` | 获取服务详情(支持namespace参数) |
+| POST | `/api/services` | 注册服务实例 |
+| POST | `/api/services/register` | 注册服务实例(兼容) |
+| POST | `/api/services/deregister` | 注销服务实例 |
+| POST | `/api/heartbeat` | 发送心跳 |
+
+### 监控管理
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
 | GET | `/api/metrics` | 获取核心性能指标 |
-| GET | `/api/services` | 获取服务列表 |
-| GET | `/api/services/{name}` | 获取服务详情 |
-| GET | `/api/namespaces` | 获取命名空间列表 |
 | GET | `/api/health` | 获取健康状态 |
 | GET | `/api/stats` | 获取统计数据 |
-| POST | `/api/services/register` | 注册服务实例 |
-| POST | `/api/services/deregister` | 注销服务实例 |
-| POST | `/api/heartbeat` | 发送心跳 |
+| GET | `/api/namespaces` | 获取命名空间列表 |
+
+### 配置管理
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/api/configs` | 获取所有配置 |
+| GET | `/api/config?dataId=&group=` | 获取指定配置 |
+| POST | `/api/config/publish` | 发布配置 |
+| DELETE | `/api/config?dataId=` | 删除配置 |
 
 ### 请求/响应示例
 
