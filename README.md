@@ -5,8 +5,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.0.0-blue.svg" alt="Version">
-  <img src="https://img.shields.io/badge/Java-21+-green.svg" alt="Java">
+  <img src="https://img.shields.io/badge/Version-3.0.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Java-17+-green.svg" alt="Java">
   <img src="https://img.shields.io/badge/Protocol-Netty-orange.svg" alt="Protocol">
   <img src="https://img.shields.io/badge/Performance-50K%2B%20QPS-red.svg" alt="Performance">
 </p>
@@ -34,108 +34,151 @@
 
 ```
 chana-registry/
-├── pom.xml                      # Maven父项目
-├── chanacommon/                 # 公共模块
+├── pom.xml                           # Maven父项目
+├── chanacommon/                      # 公共模块
 │   └── src/main/java/com/chanacode/common/
-│       ├── constant/            # RegistryConstants, MessageType
-│       └── dto/                # ServiceInstance, RegistryRequest/Response
-├── chanacore/                   # 核心模块
+│       ├── constant/                 # RegistryConstants, MessageType
+│       └── dto/                      # ServiceInstance, RegistryRequest/Response
+├── chanacore/                         # 核心模块
 │   └── src/main/java/com/chanacode/core/
-│       ├── registry/            # ServiceRegistry (O(1)注册发现)
-│       ├── cache/               # 三级缓存管理器
-│       ├── health/             # 滑动窗口健康检查器
-│       ├── namespace/           # 多租户命名空间
-│       ├── sync/                # 增量同步管理器
-│       └── metrics/            # HdrHistogram高精度指标
-├── chanaserver/                 # Netty服务端
+│       ├── registry/                 # ServiceRegistry (O(1)注册发现)
+│       ├── cache/                    # 三级缓存管理器
+│       ├── health/                   # 滑动窗口健康检查器
+│       ├── namespace/                # 多租户命名空间
+│       ├── sync/                     # 增量同步管理器
+│       └── metrics/                  # HdrHistogram高精度指标
+├── chanaserver/                       # 注册中心服务端
 │   └── src/main/java/com/chanacode/server/
-│       ├── bootstrap/           # ChaNaServer启动器
-│       ├── netty/              # Netty处理器/编解码器
-│       └── http/               # HTTP API处理器
-├── chana-spring/                # Spring Boot集成 (新增)
-│   └── src/main/java/com/chanacode/spring/
-│       ├── ChaNaSpringApplication.java  # Spring Boot启动类
-│       ├── config/             # Spring配置
-│       └── controller/         # REST Controller
-├── chanaapi/                    # 客户端SDK
-│   └── src/main/java/com/chanacode/api/
-│       ├── client/              # ChaNaClient
-│       ├── factory/            # ChaNaClientFactory
-│       └── annotation/          # ChaNaService注解
-└── chanaui/                    # React前端
-    └── src/
-        ├── pages/             # 页面组件
-        ├── services/           # API服务层
-        ├── utils/             # 工具类(axios)
-        └── components/         # 公共组件
+│       ├── config/                   # 自动配置
+│       ├── bootstrap/                 # ChaNaServer启动器
+│       ├── netty/                     # Netty处理器/编解码器
+│       └── http/                      # HTTP API处理器
+├── chana-spring-boot-starter/         # Spring Boot客户端starter
+│   └── src/main/java/com/chanacode/spring/boot/starter/
+│       ├── ChaNaClientAutoConfiguration
+│       ├── ChaNaClientProperties
+│       ├── ChaNaServiceRegistry
+│       └── ChaNaServiceAnnotationBeanPostProcessor
+└── chanaapi/                         # 客户端SDK
+    └── src/main/java/com/chanacode/api/
+        ├── client/                   # ChaNaClient
+        ├── factory/                  # ChaNaClientFactory
+        └── annotation/               # ChaNaService注解
 ```
 
 ---
 
 ## 快速开始 | Quick Start
 
-### 方式一：Netty服务端 (高性能)
+### 1. 启动注册中心服务端
 
 ```bash
-# 1. 构建项目
-cd chana-registry
-mvn clean package -DskipTests
-
-# 2. 启动Netty服务端
+mvn clean install -DskipTests
 java -jar chanaserver/target/chanaserver-1.0.0.jar
-# Netty端口: 9999, HTTP端口: 9998
 ```
 
-### 方式二：Spring Boot服务端 (标准HTTP API)
+或创建Spring Boot应用:
 
-```bash
-# 1. 构建项目
-cd chana-registry
-mvn clean package -DskipTests
-
-# 2. 启动Spring Boot服务端
-java -jar chana-spring/target/chana-spring-1.0.0.jar
-# HTTP端口: 9998, 提供标准REST API
+```java
+@SpringBootApplication
+@EnableChaNaServer
+public class App {
+    public static void main(String[] args) {
+        SpringApplication.run(App.class, args);
+    }
+}
 ```
 
-### 3. 启动前端
-
-```bash
-cd chanaui
-npm install
-npm run dev
+配置 `application.yml`:
+```yaml
+chana:
+  netty:
+    port: 9999
+  http:
+    port: 9998
 ```
 
-访问 `http://localhost:3000` 查看控制台
+### 2. 客户端集成
+
+引入依赖:
+```xml
+<dependency>
+    <groupId>com.chanacode</groupId>
+    <artifactId>chana-discovery-spring-boot3-starter</artifactId>
+    <version>3.0.0</version>
+</dependency>
+```
+
+配置 `application.yml`:
+```yaml
+chana:
+  discovery:
+    server-host: localhost
+    server-port: 9999
+```
+
+启动类添加 `@EnableChaNaDiscovery`:
+```java
+@EnableChaNaDiscovery
+@SpringBootApplication
+public class OrderApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(OrderApplication.class, args);
+    }
+}
+```
+
+服务类添加 `@ChaNaService` 注解:
+```java
+@ChaNaService(name = "order-service", version = "1.0.0")
+public class OrderServiceImpl implements OrderService {
+    // ...
+}
+```
 
 ---
 
 ## REST API 接口 | REST API Endpoints
 
-### Spring Boot API (推荐)
+基础路径: `http://localhost:9998/api`
 
-基础路径: `/api/v1`
+### 服务管理
 
 | 方法 | 路径 | 描述 |
 |------|------|------|
-| GET | `/api/v1/metrics` | 获取核心性能指标 |
-| GET | `/api/v1/services` | 获取服务列表 |
-| GET | `/api/v1/services/{name}` | 获取服务详情 |
-| GET | `/api/v1/namespaces` | 获取命名空间列表 |
-| GET | `/api/v1/health` | 获取健康状态 |
-| GET | `/api/v1/stats` | 获取统计数据 |
-| POST | `/api/v1/services/register` | 注册服务实例 |
-| POST | `/api/v1/services/deregister` | 注销服务实例 |
-| POST | `/api/v1/heartbeat` | 发送心跳 |
+| GET | `/api/services` | 获取服务列表 |
+| GET | `/api/services/{name}?namespace=xxx` | 获取服务详情(支持namespace参数) |
+| POST | `/api/services` | 注册服务实例 |
+| POST | `/api/services/register` | 注册服务实例(兼容) |
+| POST | `/api/services/deregister` | 注销服务实例 |
+| POST | `/api/heartbeat` | 发送心跳 |
+
+### 监控管理
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/api/metrics` | 获取核心性能指标 |
+| GET | `/api/health` | 获取健康状态 |
+| GET | `/api/stats` | 获取统计数据 |
+| GET | `/api/namespaces` | 获取命名空间列表 |
+
+### 配置管理
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/api/configs` | 获取所有配置 |
+| GET | `/api/config?dataId=&group=` | 获取指定配置 |
+| POST | `/api/config/publish` | 发布配置 |
+| DELETE | `/api/config?dataId=` | 删除配置 |
 
 ### 请求/响应示例
 
 ```bash
 # 获取服务列表
-curl http://localhost:9998/api/v1/services
+curl http://localhost:9998/api/services
 
 # 注册服务
-curl -X POST http://localhost:9998/api/v1/services/register \
+curl -X POST http://localhost:9998/api/services/register \
   -H "Content-Type: application/json" \
   -d '{
     "instanceId": "instance-001",
@@ -148,7 +191,7 @@ curl -X POST http://localhost:9998/api/v1/services/register \
   }'
 
 # 发送心跳
-curl -X POST http://localhost:9998/api/v1/heartbeat \
+curl -X POST http://localhost:9998/api/heartbeat \
   -H "Content-Type: application/json" \
   -d '{
     "instanceId": "instance-001",
@@ -231,33 +274,35 @@ curl -X POST http://localhost:9998/api/v1/heartbeat \
 
 ---
 
-## 客户端使用 | Client Usage
+## 客户端使用 | Client Usage (Spring Boot方式)
 
 ```java
-// 创建客户端
-ChaNaClient client = new ChaNaClient("localhost", 9999);
-client.connect();
+@EnableChaNaClient
+@SpringBootApplication
+public class OrderApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(OrderApplication.class, args);
+    }
+}
 
-// 注册服务
-ServiceInstance instance = ServiceInstance.builder()
-    .instanceId(UUID.randomUUID().toString())
-    .serviceName("order-service")
-    .host("192.168.1.100")
-    .port(8080)
-    .weight(100)
-    .namespace("production")
-    .build();
+// 服务实现类添加 @ChaNaService 注解即可自动注册
+@ChaNaService(name = "order-service", version = "1.0.0", group = "production")
+public class OrderServiceImpl implements OrderService {
+    // ...
+}
+```
 
-client.register(instance);
+### 客户端配置项
 
-// 启动心跳 (5秒间隔)
-client.startHeartbeat(5000);
-
-// 发现服务
-List<ServiceInstance> instances = client.discover("order-service", "production");
-
-// 关闭
-client.close();
+```yaml
+chana:
+  client:
+    server-host: localhost      # 注册中心地址
+    server-port: 9999           # 注册中心端口
+    auto-register: true         # 自动注册
+    namespace: default         # 命名空间
+    group: DEFAULT_GROUP        # 分组
+    heartbeat-interval: 5000   # 心跳间隔(ms)
 ```
 
 ---
@@ -280,18 +325,16 @@ java -server \
 ## 技术栈 | Tech Stack
 
 ### 后端
-- **Java 21+**: 虚拟线程(Project Loom)、ZGC垃圾回收器
+- **Java 17+**: 虚拟线程(Project Loom)、ZGC垃圾回收器
 - **Netty 4.1**: 高性能网络、EPOLL支持
-- **Spring Boot 3.2**: 标准HTTP API
-- **Undertow**: 高性能Web容器
+- **Spring Boot 3.2**: 自动配置、starter生态
 - **Guava**: 高性能缓存
+- **LMAX Disruptor**: 高性能队列
 
-### 前端
-- **React 18**: 前端框架
-- **Ant Design 5**: UI组件库
-- **Vite 5**: 构建工具
-- **Recharts**: 图表组件
-- **Axios**: HTTP客户端
+### 客户端SDK
+- **chana-discovery-spring-boot3-starter**: 服务注册与发现
+- **chana-config-spring-boot3-starter**: 分布式配置 (开发中)
+- **@EnableChaNaClient**: 一行注解启用服务注册发现
 
 ---
 
