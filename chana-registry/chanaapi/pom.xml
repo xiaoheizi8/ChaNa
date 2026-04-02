@@ -16,6 +16,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.chanacode</groupId>
             <artifactId>chanacommon</artifactId>
             <version>${project.parent.version}</version>
