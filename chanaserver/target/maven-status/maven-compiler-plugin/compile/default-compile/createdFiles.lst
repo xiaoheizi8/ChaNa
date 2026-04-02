@@ -1,0 +1,9 @@
+com\chanacode\server\bootstrap\ChaNaServer.class
+com\chanacode\server\netty\RegistryServerHandler.class
+com\chanacode\server\config\ChaNaProperties.class
+com\chanacode\server\http\HttpApiHandler.class
+com\chanacode\server\config\ChaNaServerAutoConfiguration.class
+com\chanacode\server\netty\ProtocolCodec.class
+com\chanacode\server\ChaNaRegistryApplication.class
+com\chanacode\server\bootstrap\ChaNaServer$1.class
+META-INF\spring-configuration-metadata.json

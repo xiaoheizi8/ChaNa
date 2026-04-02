@@ -1,0 +1,48 @@
+{
+  "groups": [
+    {
+      "name": "chana.server",
+      "type": "com.chanacode.server.config.ChaNaProperties",
+      "sourceType": "com.chanacode.server.config.ChaNaProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "chana.server.enable-auth",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chanacode.server.config.ChaNaProperties",
+      "defaultValue": false
+    },
+    {
+      "name": "chana.server.http-enabled",
+      "type": "java.lang.Boolean",
+      "sourceType": "com.chanacode.server.config.ChaNaProperties",
+      "defaultValue": true
+    },
+    {
+      "name": "chana.server.http-port",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chanacode.server.config.ChaNaProperties",
+      "defaultValue": 8080
+    },
+    {
+      "name": "chana.server.port",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chanacode.server.config.ChaNaProperties",
+      "defaultValue": 9999
+    },
+    {
+      "name": "chana.server.token",
+      "type": "java.lang.String",
+      "sourceType": "com.chanacode.server.config.ChaNaProperties",
+      "defaultValue": ""
+    },
+    {
+      "name": "chana.server.worker-threads",
+      "type": "java.lang.Integer",
+      "sourceType": "com.chanacode.server.config.ChaNaProperties",
+      "defaultValue": 16
+    }
+  ],
+  "hints": []
+}

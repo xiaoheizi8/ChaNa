@@ -1,0 +1,7 @@
+com\chanacode\api\client\ChaNaClient.class
+com\chanacode\api\factory\ChaNaClientFactory.class
+com\chanacode\api\client\ChaNaClient$1.class
+com\chanacode\api\annotation\ChaNaService.class
+com\chanacode\api\client\ChaNaClient$InboundResponseDecoder.class
+com\chanacode\api\client\ChaNaClient$OutboundRequestEncoder.class
+com\chanacode\api\client\ChaNaClient$2.class

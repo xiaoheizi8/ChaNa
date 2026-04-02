@@ -1,0 +1,11 @@
+com\chanacode\common\dto\RegistryStats.class
+com\chanacode\common\dto\ServiceInstance$ServiceInstanceBuilder.class
+com\chanacode\common\dto\RegistryResponse$RegistryResponseBuilder.class
+com\chanacode\common\dto\RegistryRequest$RegistryRequestBuilder.class
+com\chanacode\common\dto\RegistryRequest.class
+com\chanacode\common\constant\RegistryConstants.class
+com\chanacode\common\dto\ServiceInstance.class
+com\chanacode\common\loadbalance\LoadBalancer.class
+com\chanacode\common\constant\MessageType.class
+com\chanacode\common\dto\RegistryResponse.class
+com\chanacode\common\dto\RegistryStats$RegistryStatsBuilder.class
